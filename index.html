@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Shoes</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Filter Shoes</h2>
+        <form id="filterForm">
+            <div class="form-group">
+                <label for="orderby">排序規則</label>
+                <select class="form-control" id="orderby" name="orderby">
+                    <option value="1">新上市</option>
+                    <option value="5">依銷量</option>
+                    <option value="2">價格低到高</option>
+                    <option value="3">價格高到低</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="searchSize">尺寸</label>
+                <select class="form-control" id="searchSize" name="searchSize">
+                    <option value="0">尺寸</option>
+                    <option value="1385">33</option>
+                    <option value="6">34</option>
+                    <option value="7">35</option>
+                    <option value="8">36</option>
+                    <option value="9">37</option>
+                    <option value="10">38</option>
+                    <option value="11">39</option>
+                    <option value="12">40</option>
+                    <option value="13">41</option>
+                    <option value="14">42</option>
+                    <option value="15">43</option>
+                    <option value="16">44</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="searchColor">顏色系列</label>
+                <select class="form-control" id="searchColor" name="searchColor">
+                    <option value="0">顏色系列</option>
+                    <option value="49">黑色系</option>
+                    <option value="84">白色系</option>
+                    <option value="82">灰色系</option>
+                    <option value="79">裸色系</option>
+                    <option value="61">大地色系</option>
+                    <option value="73">粉色系</option>
+                    <option value="55">紅色系</option>
+                    <option value="52">黃橘色系</option>
+                    <option value="64">綠色系</option>
+                    <option value="58">藍紫色系</option>
+                    <option value="67">金屬色</option>
+                    <option value="76">動物紋</option>
+                    <option value="70">其他</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="searchHeel">跟高</label>
+                <select class="form-control" id="searchHeel" name="searchHeel">
+                    <option value="0">跟高</option>
+                    <option value="1">平底 2.5cm以下</option>
+                    <option value="2">低跟 2.5-4.5cm</option>
+                    <option value="3">中跟 4.5-6.5cm</option>
+                    <option value="4">高跟 6.5cm以上</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="searchCat">鞋款</label>
+                <select class="form-control" id="searchCat" name="searchCat">
+                    <option value="0">鞋款</option>
+                    <option value="350">機能風芭蕾鞋</option>
+                    <option value="338">瑪莉珍鞋</option>
+                    <option value="130">樂福鞋、紳士鞋</option>
+                    <option value="325">牛津鞋、德比鞋</option>
+                    <option value="133">休閒鞋、德訓鞋</option>
+                    <option value="139">平底鞋、娃娃鞋</option>
+                    <option value="244">莫卡辛、豆豆鞋</option>
+                    <option value="292">穆勒鞋</option>
+                    <option value="142">跟鞋</option>
+                    <option value="127">涼鞋、拖鞋</option>
+                    <option value="304">運動鞋、老爹鞋</option>
+                </select>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="submitDafForm()">確定</button>
+        </form>
+    </div>
+
+    <script>
+
+        // 從後端獲取卡片資料
+const url="http://localhost:8080/filter";
+
+        function submitDafForm() {
+            const form = document.getElementById('filterForm');
+            const formData = new FormData(form);
+            formData.append('store', 'daf');
+            const params = new URLSearchParams(formData).toString();
+            fetch(`${url}?${params}`)
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
