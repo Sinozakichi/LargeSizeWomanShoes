@@ -11,30 +11,46 @@ import (
 
 const rootURL = "https://www.daf-shoes.com/"
 
-func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) {
+// 靴類的searchCat
+var bootCategory = map[string]int{
+	"148": 1,
+	"199": 2,
+	"314": 3,
+	"256": 4,
+	"259": 5,
+}
+
+func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) ([]Shoe, error) {
+
+	var url string
+	shoes := []Shoe{}
 
 	// 記錄參數
 	log.Printf("D+AF篩選條件 - 排序規則: %s, 尺碼: %s, 顏色: %s, 跟高: %s, 款式: %s", orderby, searchSize, searchColor, searchHeel, searchCat)
 
-	// 手動組裝篩選 URL
-	url := fmt.Sprintf("%sproduct/list/all?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
+	// 靴類要打另一個URL
+	if _, exists := bootCategory[searchCat]; exists {
+		url = fmt.Sprintf("%sproduct/list/303?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
+	} else {
+		// 其他品項則手動組裝篩選 URL
+		url = fmt.Sprintf("%sproduct/list/all?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
+	}
 
 	// 向 D+AF 打 Fliter HTTP GET 請求
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("請求錯誤:", err)
-		return
+		fmt.Println("初始請求錯誤:", err)
+		return shoes, err
 	}
 	defer resp.Body.Close()
 
 	// 讀取回應內容
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("讀取回應錯誤:", err)
-		return
+		fmt.Println("初始讀取回應錯誤:", err)
+		return shoes, err
 	}
 
-	shoes := []Shoe{}
 	// 取出訊息
 	// ListID、名稱、價格
 	getListIDAndNameAndPrize(body, &shoes)
@@ -47,16 +63,16 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	for i := range shoes {
 		childresp, err := http.Get(shoes[i].URL)
 		if err != nil {
-			fmt.Println("請求錯誤:", err)
-			return
+			fmt.Println("遍歷訪問各商品時請求錯誤:", err)
+			return shoes, err
 		}
 		defer childresp.Body.Close()
 
 		// 讀取回應內容
 		childbody, err := io.ReadAll(childresp.Body)
 		if err != nil {
-			fmt.Println("讀取回應錯誤:", err)
-			return
+			fmt.Println("遍歷訪問各商品時讀取回應錯誤:", err)
+			return shoes, err
 		}
 
 		// 尺碼
@@ -69,6 +85,8 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	for _, shoe := range shoes {
 		fmt.Printf("ListID:%s, Name: %s, Price: %s,Image: %s,URL:%s", shoe.ListID, shoe.Name, shoe.Price, shoe.Image, shoe.URL)
 	}
+
+	return shoes, nil
 }
 
 // 從吐回來的Body中取出所有鞋的名稱、價格、數量

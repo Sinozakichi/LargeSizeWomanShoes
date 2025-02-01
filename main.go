@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 )
@@ -39,11 +39,23 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	searchCat := r.URL.Query().Get("searchCat")
 	store := r.URL.Query().Get("store")
 
+	var shoes []Shoe
+	var err error
+
 	switch store {
 	case "daf":
-		getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat)
+		shoes, err = getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat)
 	default:
+		http.Error(w, "未知的商店", http.StatusBadRequest)
+		return
 	}
 
-	fmt.Fprintf(w, "篩選條件已處理")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// 返回 JSON 結果
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(shoes)
+
 }
