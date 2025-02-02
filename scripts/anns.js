@@ -1,8 +1,8 @@
-function submitDafForm() {
+function submitAnnsForm() {
   // 取得表單資料+整理資料
-  const form = document.getElementById("dafFilterForm");
+  const form = document.getElementById("annsFilterForm");
   const formData = new FormData(form);
-  formData.append("store", "daf");
+  formData.append("store", "anns");
   const params = new URLSearchParams(formData).toString();
   const selectedCategoryText = form.querySelector(
     "#searchCat option:checked"
@@ -40,17 +40,22 @@ function submitDafForm() {
       data.forEach((shoe) => {
         const row = document.createElement("tr");
         row.innerHTML = `
-                        <td>${shoe.name}</td>
-                        <td>${shoe.price}</td>
-                        <td><img src="${shoe.image}" alt="${
+                          <td>${shoe.name}</td>
+                          <td>${shoe.price}</td>
+                          <td><img src="${shoe.image}" alt="${
           shoe.name
         }" style="width: 50px; height: auto;"></td>
-                        <td><a href="${shoe.url}" target="_blank">連結</a></td>
-                        <td>${highlightSizes(shoe.size, selectedSizeText)}</td>
-                        <td>${shoe.color.join(", ")}</td>
-                        <td>D+AF</td>
-                        <td>${selectedCategoryText}</td>
-                    `;
+                          <td><a href="${
+                            shoe.url
+                          }" target="_blank">連結</a></td>
+                          <td>${highlightSizes(
+                            shoe.size,
+                            selectedSizeText
+                          )}</td>
+                          <td>${shoe.color.join(", ")}</td>
+                          <td>D+AF</td>
+                          <td>${selectedCategoryText}</td>
+                      `;
         tableBody.appendChild(row);
       });
       Swal.fire({
@@ -68,15 +73,4 @@ function submitDafForm() {
         text: error.message,
       });
     });
-}
-
-function highlightSizes(sizes, selectedSize) {
-  return sizes
-    .map((size) => {
-      if (size === selectedSize) {
-        return `<span style="color: red;">${size}</span>`;
-      }
-      return size;
-    })
-    .join(", ");
 }

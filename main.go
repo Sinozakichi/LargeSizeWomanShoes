@@ -45,6 +45,8 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	switch store {
 	case "daf":
 		shoes, err = getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat)
+	case "anns":
+		shoes, err = getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat)
 	default:
 		http.Error(w, "未知的商店", http.StatusBadRequest)
 		return
