@@ -7,10 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
-	"strings"
-
-	"golang.org/x/net/html"
 )
 
 type RequestBody struct {
@@ -62,6 +60,29 @@ type AnnsShoe struct {
 	PicUrl     string   `json:"picUrl"`
 	PicList    []string `json:"picList"`
 	Price      int      `json:"price"`
+}
+
+type SKUProperty struct {
+	GoodsSKUId       int     `json:"GoodsSKUId"`
+	PropertySet      string  `json:"PropertySet"`
+	SaleProductSKUId int     `json:"SaleProductSKUId"`
+	SellingQty       int     `json:"SellingQty"`
+	OnceQty          int     `json:"OnceQty"`
+	PropertyNameSet  string  `json:"PropertyNameSet"`
+	IsShow           bool    `json:"IsShow"`
+	Price            float64 `json:"Price"`
+	SuggestPrice     float64 `json:"SuggestPrice"`
+	CartonQty        int     `json:"CartonQty"`
+}
+
+type SalePageIndexViewModel struct {
+	Id                 int           `json:"Id"`
+	ShopId             int           `json:"ShopId"`
+	ShopName           string        `json:"ShopName"`
+	ShopCategoryId     int           `json:"ShopCategoryId"`
+	CategoryId         int           `json:"CategoryId"`
+	CategoryName       string        `json:"CategoryName"`
+	SKUPropertySetList []SKUProperty `json:"SKUPropertySetList"`
 }
 
 const rootAPIURL = "https://fts-api.91app.com/pythia-cdn/graphql"
@@ -145,12 +166,10 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 	// 遍歷訪問shoes.URL，取得每個shoes的Size和Color
 	getSizeAndColor(shoes)
 
-	// 驗證篩選出的資料
-	for _, shoe := range shoes {
-		fmt.Printf("ListID:%s, Name: %s, Price: %s,Image: %s,URL:%s", shoe.ListID, shoe.Name, shoe.Price, shoe.Image, shoe.URL)
-	}
+	// 篩選出有符合尺寸的鞋子
+	filteredShoes := filterShoesBySize(shoes, searchSize)
 
-	return shoes, nil
+	return filteredShoes, nil
 }
 
 // 提取並解析傳回來body.json的資料，並塞入ListID、Name、Price、Image、URL
@@ -190,100 +209,77 @@ func getSizeAndColor(shoes []Shoe) {
 		}
 		defer childresp.Body.Close()
 
-		// 解析 HTML 取得鞋子尺寸
-		size, err := extractSizes(childresp.Body)
+		// 解析 HTML 取得鞋子尺寸與顏色
+		size, color, err := extractSizesAndColors(childresp.Body)
 		if err != nil {
 			fmt.Println("解析 HTML 錯誤:", err)
 			continue
 		}
 		shoes[i].Size = size
-		// 解析 HTML 取得鞋子顏色
-		color := extractColors(childresp.Body)
-		if err != nil {
-			fmt.Println("解析 HTML 錯誤:", err)
-			continue
-		}
 		shoes[i].Color = color
 
 	}
 }
 
 // 解析 HTML 並從中提取鞋子尺寸
-func extractSizes(body io.Reader) ([]string, error) {
-	var sizes []string
-	tokenizer := html.NewTokenizer(body)
-	inSKUList := false
-
-	for {
-		tt := tokenizer.Next()
-		switch tt {
-		case html.ErrorToken:
-			return sizes, nil // 讀取完畢
-		case html.StartTagToken:
-			token := tokenizer.Token()
-			if token.Data == "ul" {
-				// 檢查是否為 class="sku-ul"
-				for _, attr := range token.Attr {
-					if attr.Key == "class" && strings.Contains(attr.Val, "sku-ul") {
-						inSKUList = true
-					}
-				}
-			} else if inSKUList && token.Data == "a" {
-				// 提取 <a> 內的文字
-				tt = tokenizer.Next()
-				if tt == html.TextToken {
-					sizes = append(sizes, strings.TrimSpace(tokenizer.Token().Data))
-				}
-			}
-		case html.EndTagToken:
-			token := tokenizer.Token()
-			if token.Data == "ul" {
-				inSKUList = false
-			}
-		}
+func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
+	// 讀取 HTML 內容
+	htmlBytes, err := io.ReadAll(body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("讀取 HTML 失敗: %v", err)
 	}
+	htmlContent := string(htmlBytes)
+
+	// 找出所有 `PropertyNameSet":"尺寸:XX`
+	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
+	sizeMatches := sizeRe.FindAllStringSubmatch(htmlContent, -1)
+
+	if sizeMatches == nil {
+		return nil, nil, fmt.Errorf("未找到任何尺寸資料")
+	}
+
+	// 用 map 避免重複
+	sizeSet := make(map[string]struct{})
+	for _, match := range sizeMatches {
+		sizeSet[match[1]] = struct{}{}
+	}
+
+	// 轉成 slice 回傳
+	sizes := make([]string, 0, len(sizeSet))
+	for size := range sizeSet {
+		sizes = append(sizes, size)
+	}
+	// 找出所有 "GroupItemTitle": 後的顏色
+	colorRe := regexp.MustCompile(`"GroupItemTitle"\s*:\s*"([^"]*)"`)
+	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
+
+	if colorMatches == nil {
+		return nil, nil, fmt.Errorf("未找到任何顏色資料")
+	}
+
+	// 用 map 避免重複
+	colorSet := make(map[string]struct{})
+	for _, match := range colorMatches {
+		colorSet[match[1]] = struct{}{}
+	}
+
+	// 轉成 slice 回傳
+	colors := make([]string, 0, len(colorSet))
+	for color := range colorSet {
+		colors = append(colors, color)
+	}
+	return sizes, colors, nil
 }
 
-// 解析 HTML 並從中提取鞋子顏色
-func extractColors(body io.Reader) []string {
-	doc, err := html.Parse(body)
-	if err != nil {
-		fmt.Println("解析 HTML 失敗:", err)
-		return nil
-	}
-
-	var colors []string
-	var findUl bool
-
-	// 遞迴遍歷節點
-	var traverse func(*html.Node)
-	traverse = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "ul" {
-			// 檢查 ul 是否符合 class="group-list is-circle"
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && strings.Contains(attr.Val, "group-list is-circle") {
-					findUl = true
-				}
+// 尺寸篩選
+func filterShoesBySize(shoes []Shoe, searchSize string) []Shoe {
+	var filteredShoes []Shoe
+	for _, shoe := range shoes {
+		for _, size := range shoe.Size {
+			if size == searchSize {
+				filteredShoes = append(filteredShoes, shoe)
 			}
 		}
-
-		if findUl && n.Type == html.ElementNode && n.Data == "p" {
-			// 檢查 class 是否為 group-list-item__tooltip_content
-			for _, attr := range n.Attr {
-				if attr.Key == "class" && attr.Val == "group-list-item__tooltip_content" {
-					if n.FirstChild != nil {
-						colors = append(colors, n.FirstChild.Data)
-					}
-				}
-			}
-		}
-
-		// 遞迴處理子節點
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			traverse(c)
-		}
 	}
-
-	traverse(doc)
-	return colors
+	return filteredShoes
 }

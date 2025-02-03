@@ -70,13 +70,3 @@ function submitDafForm() {
     });
 }
 
-function highlightSizes(sizes, selectedSize) {
-  return sizes
-    .map((size) => {
-      if (size === selectedSize) {
-        return `<span style="color: red;">${size}</span>`;
-      }
-      return size;
-    })
-    .join(", ");
-}

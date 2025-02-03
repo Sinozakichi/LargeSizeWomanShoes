@@ -1,6 +1,19 @@
 // 從後端獲取鞋子資料
 const url = "http://localhost:8080/filter";
 
+// 標示出選擇的鞋碼
+function highlightSizes(sizes, selectedSize) {
+  return sizes
+    .map((size) => {
+      if (size === selectedSize) {
+        return `<span style="color: red;">${size}</span>`;
+      }
+      return size;
+    })
+    .join(", ");
+}
+
+// 監聽Tab切換事件
 document.addEventListener("DOMContentLoaded", function () {
   const navLinks = document.querySelectorAll(".nav-link");
   const tabPanes = document.querySelectorAll(".tab-pane");

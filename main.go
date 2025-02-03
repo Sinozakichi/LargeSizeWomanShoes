@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Shoe struct {
@@ -18,9 +19,29 @@ type Shoe struct {
 }
 
 func main() {
+
+	// 設定靜態文件伺服器
+	staticFs := http.FileServer(http.Dir("./static"))
+	scriptFs := http.FileServer(http.Dir("./script"))
+	http.Handle("/static/", staticFs)
+	http.Handle("/script/", scriptFs)
+
+	// // 設定靜態文件伺服器
+	// staticFs := http.FileServer(http.Dir("/app/static"))
+	// scriptFs := http.FileServer(http.Dir("/app/script"))
+
+	// // 處理靜態文件
+	// http.Handle("/static/", http.StripPrefix("/static", staticFs))
+	// http.Handle("/script/", http.StripPrefix("/script", scriptFs))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // 預設值
+	}
+
 	http.HandleFunc("/filter", filterHandler)
 	log.Println("伺服器啟動於 http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
 func filterHandler(w http.ResponseWriter, r *http.Request) {

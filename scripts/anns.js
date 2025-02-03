@@ -44,8 +44,8 @@ function submitAnnsForm() {
                           <td>${shoe.price}</td>
                           <td><img src="${shoe.image}" alt="${shoe.name}" style="width: 50px; height: auto;"></td>
                           <td><a href="${shoe.url}" target="_blank">連結</a></td>
-                          <td>1</td>
-                          <td>2</td>
+                          <td>${highlightSizes(shoe.size, selectedSizeText)}</td>
+                          <td>${shoe.color.join(", ")}</td>
                           <td>Ann's</td>
                           <td>${selectedCategoryText}</td>
                       `;
