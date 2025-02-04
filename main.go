@@ -21,18 +21,18 @@ type Shoe struct {
 func main() {
 
 	// 設定靜態文件伺服器
-	staticFs := http.FileServer(http.Dir("./static"))
-	scriptFs := http.FileServer(http.Dir("./script"))
-	http.Handle("/static/", staticFs)
-	http.Handle("/script/", scriptFs)
+	// staticFs := http.FileServer(http.Dir("./static"))
+	// scriptFs := http.FileServer(http.Dir("./script"))
+	// http.Handle("/static/", http.StripPrefix("/static/", staticFs))
+	// http.Handle("/script/", http.StripPrefix("/script/", scriptFs))
 
-	// // 設定靜態文件伺服器
-	// staticFs := http.FileServer(http.Dir("/app/static"))
-	// scriptFs := http.FileServer(http.Dir("/app/script"))
+	// 設定靜態文件伺服器
+	staticFs := http.FileServer(http.Dir("/app/static"))
+	scriptFs := http.FileServer(http.Dir("/app/script"))
 
-	// // 處理靜態文件
-	// http.Handle("/static/", http.StripPrefix("/static", staticFs))
-	// http.Handle("/script/", http.StripPrefix("/script", scriptFs))
+	// 處理靜態文件
+	http.Handle("/static/", http.StripPrefix("/static", staticFs))
+	http.Handle("/script/", http.StripPrefix("/script", scriptFs))
 
 	port := os.Getenv("PORT")
 	if port == "" {

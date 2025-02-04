@@ -1,5 +1,6 @@
 // 從後端獲取鞋子資料
-const url = "http://localhost:8080/filter";
+const url = "http://localhost:8080/filter"; //(Local)
+//const url = "https://largesizewomanshoes.fly.dev"; //(PRD)
 
 // 標示出選擇的鞋碼
 function highlightSizes(sizes, selectedSize) {
