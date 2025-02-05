@@ -21,18 +21,23 @@ type Shoe struct {
 func main() {
 
 	// 設定靜態文件伺服器
-	// staticFs := http.FileServer(http.Dir("./static"))
-	// scriptFs := http.FileServer(http.Dir("./script"))
-	// http.Handle("/static/", http.StripPrefix("/static/", staticFs))
-	// http.Handle("/script/", http.StripPrefix("/script/", scriptFs))
+	// staticFs := http.FileServer(http.Dir("./statics"))
+	// scriptFs := http.FileServer(http.Dir("./scripts"))
+	// http.Handle("/statics/", http.StripPrefix("/statics/", staticFs))
+	// http.Handle("/scripts/", http.StripPrefix("/scripts/", scriptFs))
 
 	// 設定靜態文件伺服器
 	staticFs := http.FileServer(http.Dir("/app/static"))
 	scriptFs := http.FileServer(http.Dir("/app/script"))
 
 	// 處理靜態文件
-	http.Handle("/static/", http.StripPrefix("/static", staticFs))
-	http.Handle("/script/", http.StripPrefix("/script", scriptFs))
+	http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
+	http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
+
+	// 於fly.io上處理根路徑的請求，重定向到 /static/index.html
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/statics/index.html", http.StatusFound)
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -40,7 +45,7 @@ func main() {
 	}
 
 	http.HandleFunc("/filter", filterHandler)
-	log.Println("伺服器啟動於 http://localhost:8080")
+	log.Println("伺服器啟動於 http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
 
