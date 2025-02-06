@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"text/template"
 )
 
 type Shoe struct {
@@ -21,32 +22,46 @@ type Shoe struct {
 	Color  []string `json:"color"`
 }
 
+var enviroment string
+
 func main() {
 
-	// 設定靜態文件伺服器(Local)
-	// staticFs := http.FileServer(http.Dir("./statics"))
-	// scriptFs := http.FileServer(http.Dir("./scripts"))
-	// http.Handle("/statics/", http.StripPrefix("/statics/", staticFs))
-	// http.Handle("/scripts/", http.StripPrefix("/scripts/", scriptFs))
+	// 設定環境變數
+	enviroment = os.Getenv("GO_ENV")
+	log.Println("GO_ENV:" + enviroment)
 
-	// 設定靜態文件伺服器 (PRD)
-	staticFs := http.FileServer(http.Dir("/app/static"))
-	scriptFs := http.FileServer(http.Dir("/app/script"))
+	if enviroment == "debug" {
+		// 設定靜態文件伺服器(Local)
+		log.Println("Debug enviroment")
+		staticFs := http.FileServer(http.Dir("./statics"))
+		scriptFs := http.FileServer(http.Dir("./scripts"))
+		http.Handle("/statics/", http.StripPrefix("/statics/", staticFs))
+		http.Handle("/scripts/", http.StripPrefix("/scripts/", scriptFs))
 
-	// 處理靜態文件，設置了一個路由來處理以 statics 開頭的請求。http.StripPrefix("/statics/", staticFs) 創建了一個新的處理器，這個處理器會去掉請求 URL 中的 statics 前綴，然後將剩餘部分交給 staticFs 處理。例如，當請求 URL 是 index.html 時，實際上會從 index.html 提供文件。
-	http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
-	http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
+	} else if enviroment == "release" {
+		// 設定靜態文件伺服器 (PRD)
+		// 處理靜態文件，設置了一個路由來處理以 statics 開頭的請求。http.StripPrefix("/statics/", staticFs) 創建了一個新的處理器，這個處理器會去掉請求 URL 中的 statics 前綴，然後將剩餘部分交給 staticFs 處理。例如，當請求 URL 是 index.html 時，實際上會從 index.html 提供文件。
+		log.Println("Release enviroment")
+		staticFs := http.FileServer(http.Dir("/app/static"))
+		scriptFs := http.FileServer(http.Dir("/app/script"))
 
-	// 於fly.io上處理根路徑的請求，重定向到 /static/index.html
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/statics/index.html", http.StatusFound)
-	})
+		http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
+		http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
+
+		// 於fly.io上處理根路徑的請求，重定向到 /static/index.html
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/statics/index.html", http.StatusFound)
+		})
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080" // 預設值
 	}
 
+	// 動態生成首頁主頁面
+	http.HandleFunc("/", indexHandler)
+	// 處理器來處理爬女鞋資訊主請求
 	http.HandleFunc("/filter", filterHandler)
 	log.Println("伺服器啟動於 http://localhost:" + port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
@@ -89,6 +104,17 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(shoes)
 
+}
+
+// indexHandler 動態生成 HTML 頁面
+func indexHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("index.html"))
+	data := struct {
+		Environment string
+	}{
+		Environment: enviroment,
+	}
+	tmpl.Execute(w, data)
 }
 
 // createHTTPClientWithCACert 創建一個帶有 CA 憑證的 HTTP 客戶端

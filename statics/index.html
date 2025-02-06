@@ -327,5 +327,20 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      let url;
+      //頁面初始載好時，去後端拿環境變數
+      document.addEventListener("DOMContentLoaded", function() {
+          // 獲取嵌入的環境變數
+          var environment = "{{.Environment}}";
+          console.log('Environment:', environment);
+
+          if (environment === 'release') {
+              url = "https://largesizewomanshoes.fly.dev/filter"; // PRD
+          } else {
+              url = "http://localhost:8080/filter"; // Local
+          }
+      });
+    </script>
   </body>
 </html>

@@ -92,6 +92,7 @@ const salepageURL = "https://www.anns.tw/SalePage/Index/"
 func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) ([]Shoe, error) {
 
 	var shoes []Shoe
+	var resp *http.Response
 
 	// 記錄參數
 	log.Printf("Ann's篩選條件 - 排序規則: %s, 尺碼: %s, 顏色: %s, 跟高: %s, 款式: %s", orderby, searchSize, searchColor, searchHeel, searchCat)
@@ -142,15 +143,22 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 		return shoes, err
 	}
 
-	// 設定自訂的帶有 CA 憑證的 HTTP 客戶端
-	client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
-	if err != nil {
-		fmt.Println("無法創建 HTTP 客戶端:", err)
-		return shoes, err
+	if enviroment == "release" {
+		// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+		client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+		if err != nil {
+			fmt.Println("無法創建 HTTP 客戶端:", err)
+			return shoes, err
+		}
+
+		// 帶有 CA 憑證的 HTTP 客戶端向 Ann's 打 Fliter HTTP POST 請求
+		resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+	} else {
+		// 本地端，不用設定 CA 憑證
+		// 直接向 Ann's 打 Fliter HTTP POST 請求
+		resp, err = http.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 	}
 
-	// 向 Ann's 打 Fliter HTTP POST 請求
-	resp, err := client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("初始請求錯誤:", err)
 		return shoes, err

@@ -12,6 +12,7 @@ primary_region = 'sin'
 
 [env]
   PORT = '8080'
+  GO_ENV = "release"
 
 [http_service]
   internal_port = 8080

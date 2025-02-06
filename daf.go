@@ -23,6 +23,8 @@ var bootCategory = map[string]int{
 func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) ([]Shoe, error) {
 
 	var url string
+	var resp *http.Response
+	var err error
 	shoes := []Shoe{}
 
 	// 記錄參數
@@ -36,15 +38,22 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 		url = fmt.Sprintf("%sproduct/list/all?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
 	}
 
-	// 設定自訂的帶有 CA 憑證的 HTTP 客戶端
-	client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
-	if err != nil {
-		fmt.Println("無法創建 HTTP 客戶端:", err)
-		return shoes, err
+	if enviroment == "release" {
+		// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+		client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+		if err != nil {
+			fmt.Println("無法創建 HTTP 客戶端:", err)
+			return shoes, err
+		}
+
+		// 帶有 CA 憑證的 HTTP 客戶端向 D+AF 打 Fliter HTTP GET 請求
+		resp, err = client.Get(url)
+	} else {
+		// 本地端，不用設定 CA 憑證
+		// 直接向 D+AF 打 Fliter HTTP GET 請求
+		resp, err = http.Get(url)
 	}
 
-	// 向 D+AF 打 Fliter HTTP GET 請求
-	resp, err := client.Get(url)
 	if err != nil {
 		fmt.Println("初始請求錯誤:", err)
 		return shoes, err
