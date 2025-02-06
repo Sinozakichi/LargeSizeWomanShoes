@@ -36,8 +36,15 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 		url = fmt.Sprintf("%sproduct/list/all?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
 	}
 
+	// 設定自訂的帶有 CA 憑證的 HTTP 客戶端
+	client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+	if err != nil {
+		fmt.Println("無法創建 HTTP 客戶端:", err)
+		return shoes, err
+	}
+
 	// 向 D+AF 打 Fliter HTTP GET 請求
-	resp, err := http.Get(url)
+	resp, err := client.Get(url)
 	if err != nil {
 		fmt.Println("初始請求錯誤:", err)
 		return shoes, err

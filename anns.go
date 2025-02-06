@@ -142,8 +142,15 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 		return shoes, err
 	}
 
+	// 設定自訂的帶有 CA 憑證的 HTTP 客戶端
+	client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+	if err != nil {
+		fmt.Println("無法創建 HTTP 客戶端:", err)
+		return shoes, err
+	}
+
 	// 向 Ann's 打 Fliter HTTP POST 請求
-	resp, err := http.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("初始請求錯誤:", err)
 		return shoes, err
@@ -294,7 +301,7 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if colorMatches == nil {
-		return nil, nil, fmt.Errorf("未找到任何顏色資料")
+		return nil, nil, fmt.Errorf("未找到任何顏色資料，或其只有單色")
 	}
 
 	// 用 map 避免重複

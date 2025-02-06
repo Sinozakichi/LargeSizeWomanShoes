@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -20,17 +23,17 @@ type Shoe struct {
 
 func main() {
 
-	// 設定靜態文件伺服器
+	// 設定靜態文件伺服器(Local)
 	// staticFs := http.FileServer(http.Dir("./statics"))
 	// scriptFs := http.FileServer(http.Dir("./scripts"))
 	// http.Handle("/statics/", http.StripPrefix("/statics/", staticFs))
 	// http.Handle("/scripts/", http.StripPrefix("/scripts/", scriptFs))
 
-	// 設定靜態文件伺服器
+	// 設定靜態文件伺服器 (PRD)
 	staticFs := http.FileServer(http.Dir("/app/static"))
 	scriptFs := http.FileServer(http.Dir("/app/script"))
 
-	// 處理靜態文件
+	// 處理靜態文件，設置了一個路由來處理以 statics 開頭的請求。http.StripPrefix("/statics/", staticFs) 創建了一個新的處理器，這個處理器會去掉請求 URL 中的 statics 前綴，然後將剩餘部分交給 staticFs 處理。例如，當請求 URL 是 index.html 時，實際上會從 index.html 提供文件。
 	http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
 	http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
 
@@ -86,4 +89,23 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(shoes)
 
+}
+
+// createHTTPClientWithCACert 創建一個帶有 CA 憑證的 HTTP 客戶端
+func createHTTPClientWithCACert(caCertPath string) (*http.Client, error) {
+	// 讀取系統 CA 憑證
+	caCertPool := x509.NewCertPool()
+	caCert, err := os.ReadFile(caCertPath)
+	if err != nil {
+		return nil, fmt.Errorf("無法讀取 CA 憑證: %v", err)
+	}
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// 設定自訂的 http.Client
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: caCertPool},
+		},
+	}
+	return client, nil
 }
