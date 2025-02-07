@@ -48,10 +48,6 @@ func main() {
 		http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
 		http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
 
-		// 於fly.io上處理根路徑的請求，重定向到 /static/index.html
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "/statics/index.html", http.StatusFound)
-		})
 	}
 
 	port := os.Getenv("PORT")
@@ -108,13 +104,23 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 
 // indexHandler 動態生成 HTML 頁面
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	tmpl := template.Must(template.ParseFiles("index.html"))
+
+	var tmpl *template.Template
+	if enviroment == "release" {
+		tmpl = template.Must(template.ParseFiles("/app/static/index.html"))
+	} else {
+		tmpl = template.Must(template.ParseFiles("index.html"))
+	}
 	data := struct {
 		Environment string
 	}{
 		Environment: enviroment,
 	}
 	tmpl.Execute(w, data)
+
+	if enviroment == "release" {
+		http.Redirect(w, r, "/statics/index.html", http.StatusFound)
+	}
 }
 
 // createHTTPClientWithCACert 創建一個帶有 CA 憑證的 HTTP 客戶端

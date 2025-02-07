@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"sync"
 )
 
 const rootURL = "https://www.daf-shoes.com/"
@@ -25,6 +26,10 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	var url string
 	var resp *http.Response
 	var err error
+	// 用於等待所有 goroutines 完成
+	var wg sync.WaitGroup
+	// 用於保護共享資源
+	var mu sync.Mutex
 	shoes := []Shoe{}
 
 	// 記錄參數
@@ -75,26 +80,63 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	// 圖檔
 	getImage(body, &shoes, len(shoes))
 
+	// 傳遞結果的 channel
+	ch := make(chan struct {
+		index int
+		size  []string
+		color []string
+	})
+
 	// 遍歷訪問shoes.URL，取得每個頁面的內容
 	for i := range shoes {
-		childresp, err := http.Get(shoes[i].URL)
-		if err != nil {
-			fmt.Println("遍歷訪問各商品時請求錯誤:", err)
-			return shoes, err
-		}
-		defer childresp.Body.Close()
+		// 增加 WaitGroup 計數
+		wg.Add(1)
+		go func(i int) {
+			// 當 goroutine 完成時減少 WaitGroup 計數
+			defer wg.Done()
+			// 發送shoes.URL HTTP GET 請求
+			childresp, err := http.Get(shoes[i].URL)
+			if err != nil {
+				fmt.Println("遍歷訪問各商品時請求錯誤:", err)
+				return
+			}
+			defer childresp.Body.Close()
 
-		// 讀取回應內容
-		childbody, err := io.ReadAll(childresp.Body)
-		if err != nil {
-			fmt.Println("遍歷訪問各商品時讀取回應錯誤:", err)
-			return shoes, err
-		}
+			// 讀取回應內容
+			childbody, err := io.ReadAll(childresp.Body)
+			if err != nil {
+				fmt.Println("遍歷訪問各商品時讀取回應錯誤:", err)
+				return
+			}
 
-		// 尺碼
-		getSize(childbody, &shoes[i])
-		// 顏色
-		getColor(childbody, &shoes[i])
+			// 尺碼
+			getSize(childbody, &shoes[i])
+			// 顏色
+			getColor(childbody, &shoes[i])
+
+			// 將結果發送到 channel
+			ch <- struct {
+				index int
+				size  []string
+				color []string
+			}{index: i, size: shoes[i].Size, color: shoes[i].Color}
+		}(i)
+	}
+
+	// 啟動一個 goroutine 來等待所有工作完成並關閉 channel
+	go func() {
+		// 等待所有 goroutines 完成
+		wg.Wait()
+		close(ch)
+	}()
+
+	// 從 channel 接收結果並更新鞋子的尺寸和顏色
+	for result := range ch {
+		// 鎖定 mutex 以保護共享資源
+		mu.Lock()
+		shoes[result.index].Size = result.size
+		shoes[result.index].Color = result.color
+		mu.Unlock()
 	}
 
 	// 驗證篩選出的資料

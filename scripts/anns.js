@@ -29,7 +29,7 @@ function submitAnnsForm() {
       tableBody.innerHTML = "";
 
       // 沒有找到符合條件的結果
-      if (data.length === 0) {
+      if (data ==null ||data.length == 0) {
         Swal.fire({
           icon: "info",
           title: "搜尋結果",
