@@ -82,6 +82,7 @@ func filterHandler(w http.ResponseWriter, r *http.Request) {
 	var shoes []Shoe
 	var err error
 
+	log.Println("查詢店鋪:" + store)
 	switch store {
 	case "daf":
 		shoes, err = getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat)
