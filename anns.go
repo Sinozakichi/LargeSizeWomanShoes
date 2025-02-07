@@ -93,13 +93,12 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 
 	var shoes []Shoe
 	var resp *http.Response
+	var client *http.Client
 	startIndex := 0
 	totalSize := 0
 
 	// 記錄參數
 	log.Printf("Ann's篩選條件 - 排序規則: %s, 尺碼: %s, 顏色: %s, 跟高: %s, 款式: %s", orderby, searchSize, searchColor, searchHeel, searchCat)
-
-	// 要先打一支API去拿所有鞋的List
 
 	// 將 searchCat 轉換為整數
 	categoryId, err := strconv.Atoi(searchCat)
@@ -148,20 +147,19 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 
 	if enviroment == "release" {
 		// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
-		client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+		client, err = createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
 		if err != nil {
 			log.Println("Ann's 無法創建 HTTP 客戶端:", err)
 			return shoes, err
 		}
 
-		// 帶有 CA 憑證的 HTTP 客戶端向 Ann's 打 Fliter HTTP POST 請求
-		resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 	} else {
 		// 本地端，不用設定 CA 憑證
-		// 直接向 Ann's 打 Fliter HTTP POST 請求
-		resp, err = http.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+		client = &http.Client{}
 	}
 
+	// 帶有 CA 憑證的 HTTP 客戶端向 Ann's 打 Fliter HTTP POST 請求
+	resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Println("Ann's 商品列表初始請求錯誤:", err)
 		return shoes, err
@@ -241,6 +239,7 @@ func getTotalShoesByFliterResponse(shoes []Shoe, startIndex, totalSize int, requ
 		go func(startIndex int) {
 
 			var resp *http.Response
+			var client *http.Client
 			var newShoes []Shoe
 			defer wg.Done()
 
@@ -255,19 +254,17 @@ func getTotalShoesByFliterResponse(shoes []Shoe, startIndex, totalSize int, requ
 
 			if enviroment == "release" {
 				// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
-				client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+				client, err = createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
 				if err != nil {
 					log.Println("Ann's 無法創建 HTTP 客戶端:", err)
 					return
 				}
-
-				// 帶有 CA 憑證的 HTTP 客戶端向 Ann's 打 Fliter HTTP POST 請求
-				resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 			} else {
 				// 本地端，不用設定 CA 憑證
-				// 直接向 Ann's 打 Fliter HTTP POST 請求
-				resp, err = http.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+				client = &http.Client{}
 			}
+			// 直接向 Ann's 打 Fliter HTTP POST 請求
+			resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
 
 			if err != nil {
 				log.Println("Ann's 商品列表初始請求錯誤:", err)
@@ -308,6 +305,7 @@ func getTotalShoesByFliterResponse(shoes []Shoe, startIndex, totalSize int, requ
 		mu.Unlock()
 	}
 
+	log.Println("撈取鞋子總雙數:", len(shoes))
 	return shoes, nil
 }
 
@@ -325,14 +323,31 @@ func getSizeAndColor(shoes []Shoe) {
 		color []string
 	})
 
+	log.Println("要訪問的鞋子總雙數:", len(shoes))
 	for i := range shoes {
 		// 增加 WaitGroup 計數
 		wg.Add(1)
 		go func(i int) {
 			// 當 goroutine 完成時減少 WaitGroup 計數
 			defer wg.Done()
+
+			var client *http.Client
+			var err error
+
+			if enviroment == "release" {
+				// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+				client, err = createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+				if err != nil {
+					log.Println("Ann's 無法創建 HTTP 客戶端:", err)
+					return
+				}
+			} else {
+				// 本地端，不用設定 CA 憑證
+				client = &http.Client{}
+			}
+
 			// 發送shoes.URL HTTP GET 請求
-			childresp, err := http.Get(shoes[i].URL)
+			childresp, err := client.Get(shoes[i].URL)
 			if err != nil {
 				log.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
 				return
@@ -342,7 +357,7 @@ func getSizeAndColor(shoes []Shoe) {
 			// 解析 HTML 取得鞋子尺寸與顏色
 			size, color, err := extractSizesAndColors(childresp.Body)
 			if err != nil {
-				log.Println("Ann's 解析 HTML 錯誤:", err)
+				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
 				return
 			}
 
@@ -381,8 +396,9 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	}
 	htmlContent := string(htmlBytes)
 
-	// 找出所有 `PropertyNameSet":"尺寸:XX`
-	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
+	// 找出所有 `PropertyNameSet":"尺寸:XX` 和 `PropertyNameSet":"顏色:XX`
+	//sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
+	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*(?:尺寸|顏色):(\d+)"`)
 	sizeMatches := sizeRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if sizeMatches == nil {
@@ -405,7 +421,7 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if colorMatches == nil {
-		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色")
+		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
 	}
 
 	// 用 map 避免重複
