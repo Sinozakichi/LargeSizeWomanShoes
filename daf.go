@@ -47,7 +47,7 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 		// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
 		client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
 		if err != nil {
-			fmt.Println("無法創建 HTTP 客戶端:", err)
+			fmt.Println("D+AF 無法創建 HTTP 客戶端:", err)
 			return shoes, err
 		}
 
@@ -60,7 +60,7 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	}
 
 	if err != nil {
-		fmt.Println("初始請求錯誤:", err)
+		fmt.Println("D+AF 商品列表初始請求錯誤:", err)
 		return shoes, err
 	}
 	defer resp.Body.Close()
@@ -68,7 +68,7 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	// 讀取回應內容
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("初始讀取回應錯誤:", err)
+		fmt.Println("D+AF 商品列表初始讀取回應錯誤:", err)
 		return shoes, err
 	}
 
@@ -97,7 +97,7 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 			// 發送shoes.URL HTTP GET 請求
 			childresp, err := http.Get(shoes[i].URL)
 			if err != nil {
-				fmt.Println("遍歷訪問各商品時請求錯誤:", err)
+				fmt.Println("D+AF 遍歷訪問各商品時請求錯誤:", err)
 				return
 			}
 			defer childresp.Body.Close()
@@ -105,7 +105,7 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 			// 讀取回應內容
 			childbody, err := io.ReadAll(childresp.Body)
 			if err != nil {
-				fmt.Println("遍歷訪問各商品時讀取回應錯誤:", err)
+				fmt.Println("D+AF 遍歷訪問各商品時讀取回應錯誤:", err)
 				return
 			}
 
@@ -154,7 +154,7 @@ func getListIDAndNameAndPrize(body []byte, shoes *[]Shoe) []Shoe {
 	re := regexp.MustCompile(`gtag\('event', 'view_item_list', {[\s\S]+?}\);`)
 	matches := re.FindStringSubmatch(string(body))
 	if len(matches) == 0 {
-		fmt.Println("未找到匹配的 JavaScript 物件")
+		fmt.Println("D+AF 未找到匹配的 JavaScript 物件")
 		return *shoes
 	}
 
@@ -162,7 +162,7 @@ func getListIDAndNameAndPrize(body []byte, shoes *[]Shoe) []Shoe {
 	reItems := regexp.MustCompile(`"items": \[([^\]]+)\]`)
 	itemsMatch := reItems.FindStringSubmatch(matches[0])
 	if len(itemsMatch) == 0 {
-		fmt.Println("未找到 items 部分")
+		fmt.Println("D+AF 未找到 items 部分")
 		return *shoes
 	}
 
@@ -189,7 +189,7 @@ func getImage(body []byte, shoes *[]Shoe, num int) []Shoe {
 	re := regexp.MustCompile(`<source[^>]+srcset="([^"]+)"`)
 	matches := re.FindAllStringSubmatch(string(body), num)
 	if len(matches) != num {
-		fmt.Println("未完全匹配正確的 <source> 標籤")
+		fmt.Println("D+AF 未完全匹配正確的 <source> 標籤")
 		return *shoes
 	}
 	// 將 srcset 值存儲到 Shoe 結構體的 Image 字段
@@ -209,7 +209,7 @@ func getURL(body []byte, shoes *[]Shoe, num int) []Shoe {
 	re := regexp.MustCompile(`<a[^>]*alt="[^"]*"[^>]*href="([^"]+)"`)
 	matches := re.FindAllStringSubmatch(string(body), num)
 	if len(matches) != num {
-		fmt.Println("未完全匹配正確的 <a> 標籤")
+		fmt.Println("D+AF 未完全匹配正確的 <a> 標籤")
 		return *shoes
 	}
 
@@ -230,7 +230,7 @@ func getSize(body []byte, shoe *Shoe) *Shoe {
 	re := regexp.MustCompile(`<div[^>]+class=['"][^'"]*mini-box\s+sizeSel[^'"]*['"][^>]+btn=['"]ok['"][^>]*>.*?</div>`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		fmt.Println("未找到匹配的 <div class='mini-box sizeSel'> 標籤")
+		fmt.Println("D+AF 未找到匹配的 <div class='mini-box sizeSel'> 標籤")
 		return shoe
 	}
 
@@ -255,7 +255,7 @@ func getColor(body []byte, shoe *Shoe) *Shoe {
 	re := regexp.MustCompile(`<div[^>]+class=['"][^'"]*mini-box\s+color\s+colorSel[^'"]*['"][^>]+title=['"]([^'"]+)['"][^>]*>`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		fmt.Println("未找到匹配的 <div class='mini-box colorSel'> 標籤")
+		fmt.Println("D+AF 未找到匹配的 <div class='mini-box colorSel'> 標籤")
 		return shoe
 	}
 

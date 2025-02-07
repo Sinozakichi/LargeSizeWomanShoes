@@ -1,4 +1,10 @@
 function submitAnnsForm() {
+
+  var pass = CheckAnnsFormImformation();
+  if(!pass){
+    return;
+  }
+
   // 取得表單資料+整理資料
   const form = document.getElementById("annsFilterForm");
   const formData = new FormData(form);
@@ -14,7 +20,7 @@ function submitAnnsForm() {
   // 顯示讀取中的遮罩
   Swal.fire({
     title: "讀取中...",
-    text: "請稍候",
+    text: "資料量大的時候可能需要一點時間，請稍候",
     allowOutsideClick: false,
     didOpen: () => {
       Swal.showLoading();
@@ -66,4 +72,21 @@ function submitAnnsForm() {
         text: error.message,
       });
     });
+}
+
+function CheckAnnsFormImformation() {
+  // 取得表單資料+整理資料
+  const form = document.getElementById("annsFilterForm");
+  const searchSize = form.querySelector("#searchSize").value;
+
+  // 檢查 searchSize 是否為空值
+  if (!searchSize) {
+    Swal.fire({
+      icon: "warning",
+      title: "錯誤",
+      text: "請選擇鞋碼尺寸!",
+    });
+    return false // 阻止表單提交
+  }
+  return true
 }

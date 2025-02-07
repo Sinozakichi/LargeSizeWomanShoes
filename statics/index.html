@@ -285,7 +285,109 @@
           aria-labelledby="amai-tab"
         >
           <!-- Amai 篩選區 開始 -->
-          <h1>Amai</h1>
+          <form id="amaiFilterForm">
+            <div class="form-group">
+              <label for="searchCat">鞋款</label>
+              <select class="form-control" id="searchCat" name="searchCat">
+                <option value="100038">選款式</option>
+                <option value="100076">短靴</option>
+                <option value="321336">襪靴</option>
+                <option value="409704">軍靴</option>
+                <option value="100078">雪靴</option>
+                <option value="100074">長靴</option>
+                <option value="407882">過膝靴</option>
+                <option value="325457">真皮靴</option>
+                <option value="279377">樂福鞋</option>
+                <option value="100637">娃娃鞋、莫卡辛</option>
+                <option value="487996">瑪莉珍鞋</option>
+                <option value="100055">休閒鞋、懶人鞋</option>
+                <option value="524244">牛津鞋</option>
+                <option value="325836">老爹鞋</option>
+                <option value="293207">穆勒鞋</option>
+                <option value="100059">尖頭鞋</option>
+                <option value="358039">方頭鞋</option>
+                <option value="100048">婚鞋</option>
+                <option value="100053">防水雨靴</option>
+                <option value="293206">涼鞋</option>
+                <option value="382729">拖鞋</option>
+                <option value="334715">水洗涼鞋</option>
+                <option value="100041">一字涼鞋</option>
+                <option value="389202">透明系</option>
+                <option value="197978">草編、編織</option>
+                <option value="100039">寶石、水鑽</option>
+                <option value="389206">特殊造型跟</option>
+                <option value="376849">男鞋</option>
+                <option value="211728">童鞋</option>
+                <option value="390920">親子鞋、情侶鞋</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="orderby">排序規則</label>
+              <select class="form-control" id="orderby" name="orderby">
+                <option value="Curator">店長推薦</option>
+                <option value="Newest">最新上架</option>
+                <option value="Sales">熱賣商品</option>
+                <option value="PageView">最多人看</option>
+                <option value="PriceLowToHigh">價格低到高</option>
+                <option value="PriceHighToLow">價格高到低</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchSize">尺寸</label>
+              <select class="form-control" id="searchSize" name="searchSize">
+                <option value="">尺寸</option>
+                <option value="33">33</option>
+                <option value="34">34</option>
+                <option value="35">35</option>
+                <option value="36">36</option>
+                <option value="37">37</option>
+                <option value="38">38</option>
+                <option value="39">39</option>
+                <option value="40">40</option>
+                <option value="41">41</option>
+                <option value="42">42</option>
+                <option value="43">43</option>
+                <option value="44">44</option>
+                <option value="45">45</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchColor">顏色系列</label>
+              <select class="form-control" id="searchColor" name="searchColor">
+                <option value="">選顏色</option>
+                <option value="K2152">純白</option>
+                <option value="K2153">黑色</option>
+                <option value="K2154">灰色</option>
+                <option value="K2155">咖色</option>
+                <option value="K2156">棕色</option>
+                <option value="K2157">紫色</option>
+                <option value="K2158">米白、杏色</option>
+                <option value="K2159">粉紅、桃紅</option>
+                <option value="K2160">紅色、酒紅</option>
+                <option value="K2161">黃色、橘色</option>
+                <option value="K2162">深藍、粉藍</option>
+                <option value="K2163">Tiffany綠、墨綠</option>
+                <option value="K2164">金屬色系</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchHeel">跟高</label>
+              <select class="form-control" id="searchHeel" name="searchHeel">
+                <option value="">選跟高</option>
+                <option value="K2165">平底3公分以下</option>
+                <option value="K2166">低跟3-5.5公分</option>
+                <option value="K2167">中跟5.6-8公分</option>
+                <option value="K2168">高跟8公分以上</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="submitAmaiForm()"
+            >
+              確定
+            </button>
+          </form>
           <!-- Amai 篩選區 開始 -->
         </div>
       </div>

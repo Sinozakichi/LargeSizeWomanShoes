@@ -49,7 +49,7 @@ type ResponseData struct {
 				SalePageList     []AnnsShoe `json:"salePageList"`
 				TotalSize        int        `json:"totalSize"`
 				ShopCategoryId   int        `json:"shopCategoryId"`
-				shopCategoryName string     `json:"shopCategoryName"`
+				ShopCategoryName string     `json:"shopCategoryName"`
 			} `json:"salePageList"`
 		} `json:"shopCategory"`
 	} `json:"data"`
@@ -93,6 +93,8 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 
 	var shoes []Shoe
 	var resp *http.Response
+	startIndex := 0
+	totalSize := 0
 
 	// 記錄參數
 	log.Printf("Ann's篩選條件 - 排序規則: %s, 尺碼: %s, 顏色: %s, 跟高: %s, 款式: %s", orderby, searchSize, searchColor, searchHeel, searchCat)
@@ -102,7 +104,7 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 	// 將 searchCat 轉換為整數
 	categoryId, err := strconv.Atoi(searchCat)
 	if err != nil {
-		fmt.Println("CategoryId 轉換錯誤:", err)
+		fmt.Println("Ann's CategoryId 轉換錯誤:", err)
 		return shoes, err
 	}
 	// 構建請求的 Body
@@ -122,7 +124,7 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 		Variables: Variables{
 			ShopId:               123,
 			CategoryId:           categoryId,
-			StartIndex:           0,
+			StartIndex:           startIndex,
 			FetchCount:           600,
 			OrderBy:              orderby,
 			IsShowCurator:        true,
@@ -137,9 +139,10 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 		},
 	}
 
+	log.Printf("開始請求，從編號%d開始", startIndex)
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
-		fmt.Println("JSON 編碼錯誤:", err)
+		fmt.Println("Ann's JSON 編碼錯誤:", err)
 		return shoes, err
 	}
 
@@ -147,7 +150,7 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 		// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
 		client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
 		if err != nil {
-			fmt.Println("無法創建 HTTP 客戶端:", err)
+			fmt.Println("Ann's 無法創建 HTTP 客戶端:", err)
 			return shoes, err
 		}
 
@@ -160,7 +163,7 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 	}
 
 	if err != nil {
-		fmt.Println("初始請求錯誤:", err)
+		fmt.Println("Ann's 商品列表初始請求錯誤:", err)
 		return shoes, err
 	}
 	defer resp.Body.Close()
@@ -168,15 +171,22 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 	// 讀取回應內容
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("初始讀取回應錯誤:", err)
+		fmt.Println("Ann's 商品列表初始讀取回應錯誤:", err)
 		return shoes, err
 	}
 
 	// 提取並解析傳回來body.json的資料
-	shoes, err = extractSalePageList(body)
+	shoes, totalSize, err = extractSalePageList(body)
 	if err != nil {
-		fmt.Println("解析 salePageList 錯誤:", err)
+		fmt.Println("Ann's解析 salePageList 錯誤:", err)
 		return shoes, err
+	}
+	log.Printf("結束請求與解析，從編號%d開始到編號%d", startIndex, startIndex+len(shoes))
+
+	// 拿到totalSize後，再去拿所有鞋子的資訊，因為他一次請求只會回最多100雙，因此要迴圈請求
+	startIndex += 100
+	if totalSize > startIndex {
+		shoes, err = getTotalShoesByFliterResponse(shoes, startIndex, totalSize, requestBody)
 	}
 
 	// 遍歷訪問shoes.URL，取得每個shoes的Size和Color
@@ -184,16 +194,17 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 
 	// 篩選出有符合尺寸的鞋子
 	filteredShoes := filterShoesBySize(shoes, searchSize)
+	log.Printf("結束尺寸篩選，共有%d雙鞋", len(filteredShoes))
 
 	return filteredShoes, nil
 }
 
 // 提取並解析傳回來body.json的資料，並塞入ListID、Name、Price、Image、URL
-func extractSalePageList(body []byte) ([]Shoe, error) {
+func extractSalePageList(body []byte) ([]Shoe, int, error) {
 	var responseData ResponseData
 	err := json.Unmarshal(body, &responseData)
 	if err != nil {
-		return nil, fmt.Errorf("JSON 解析錯誤: %v", err)
+		return nil, 0, fmt.Errorf("Ann's JSON 解析錯誤: %v", err)
 	}
 
 	var shoes []Shoe
@@ -210,6 +221,91 @@ func extractSalePageList(body []byte) ([]Shoe, error) {
 			Price:  price,
 		}
 		shoes = append(shoes, shoe)
+	}
+	totalSize := responseData.Data.ShopCategory.SalePageList.TotalSize
+
+	return shoes, totalSize, nil
+}
+
+// 拿到totalSize後，再去拿所有鞋子的資訊，因為他一次請求只會回最多100雙
+// 注意:在併發區塊下下斷點，可能會有系統錯誤!
+func getTotalShoesByFliterResponse(shoes []Shoe, startIndex, totalSize int, requestBody RequestBody) ([]Shoe, error) {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	ch := make(chan []Shoe)
+
+	// 發送並發請求
+	// 每次請求100筆資料
+	for ; startIndex < totalSize; startIndex += 100 {
+		wg.Add(1)
+		go func(startIndex int) {
+
+			var resp *http.Response
+			var newShoes []Shoe
+			defer wg.Done()
+
+			// 更新 requestBody 中的 StartIndex
+			log.Printf("開始請求，從編號%d開始", startIndex)
+			requestBody.Variables.StartIndex = startIndex
+			jsonData, err := json.Marshal(requestBody)
+			if err != nil {
+				fmt.Println("Ann's JSON 編碼錯誤:", err)
+				return
+			}
+
+			if enviroment == "release" {
+				// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+				client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+				if err != nil {
+					fmt.Println("Ann's 無法創建 HTTP 客戶端:", err)
+					return
+				}
+
+				// 帶有 CA 憑證的 HTTP 客戶端向 Ann's 打 Fliter HTTP POST 請求
+				resp, err = client.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+			} else {
+				// 本地端，不用設定 CA 憑證
+				// 直接向 Ann's 打 Fliter HTTP POST 請求
+				resp, err = http.Post(rootAPIURL, "application/json", bytes.NewBuffer(jsonData))
+			}
+
+			if err != nil {
+				fmt.Println("Ann's 商品列表初始請求錯誤:", err)
+				return
+			}
+			defer resp.Body.Close()
+
+			// 讀取回應內容
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				fmt.Println("Ann's 商品列表初始讀取回應錯誤:", err)
+				return
+			}
+
+			// 提取並解析傳回來body.json的資料
+			newShoes, totalSize, err = extractSalePageList(body)
+			if err != nil {
+				fmt.Println("Ann's解析 salePageList 錯誤:", err)
+				return
+			}
+			log.Printf("結束請求與解析，從編號%d開始到編號%d", startIndex, startIndex+len(newShoes))
+
+			ch <- newShoes
+
+		}(startIndex)
+	}
+
+	// 啟動一個 goroutine 來等待所有工作完成並關閉 channel
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+
+	// 從 channel 接收結果並更新鞋子列表
+	for newShoes := range ch {
+		mu.Lock()
+		shoes = append(shoes, newShoes...)
+		mu.Unlock()
 	}
 
 	return shoes, nil
@@ -238,7 +334,7 @@ func getSizeAndColor(shoes []Shoe) {
 			// 發送shoes.URL HTTP GET 請求
 			childresp, err := http.Get(shoes[i].URL)
 			if err != nil {
-				fmt.Println("遍歷訪問各商品時請求錯誤:", err)
+				fmt.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
 				return
 			}
 			defer childresp.Body.Close()
@@ -246,7 +342,7 @@ func getSizeAndColor(shoes []Shoe) {
 			// 解析 HTML 取得鞋子尺寸與顏色
 			size, color, err := extractSizesAndColors(childresp.Body)
 			if err != nil {
-				fmt.Println("解析 HTML 錯誤:", err)
+				fmt.Println("Ann's 解析 HTML 錯誤:", err)
 				return
 			}
 
@@ -276,12 +372,12 @@ func getSizeAndColor(shoes []Shoe) {
 	}
 }
 
-// 解析 HTML 並從中提取鞋子尺寸
+// 解析 HTML 並從中提取鞋子尺寸跟顏色
 func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	// 讀取 HTML 內容
 	htmlBytes, err := io.ReadAll(body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("讀取 HTML 失敗: %v", err)
+		return nil, nil, fmt.Errorf("Ann's 讀取 HTML 失敗: %v", err)
 	}
 	htmlContent := string(htmlBytes)
 
@@ -290,7 +386,7 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	sizeMatches := sizeRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if sizeMatches == nil {
-		return nil, nil, fmt.Errorf("未找到任何尺寸資料")
+		return nil, nil, fmt.Errorf("Ann's 未找到任何尺寸資料")
 	}
 
 	// 用 map 避免重複
@@ -309,7 +405,7 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if colorMatches == nil {
-		return nil, nil, fmt.Errorf("未找到任何顏色資料，或其只有單色")
+		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色")
 	}
 
 	// 用 map 避免重複
