@@ -186,6 +186,10 @@ func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchC
 	if totalSize > startIndex {
 		shoes, err = getTotalShoesByFliterResponse(shoes, startIndex, totalSize, requestBody)
 	}
+	if err != nil {
+		log.Println("Ann's 去拿所有鞋子的資訊錯誤:", err)
+		return shoes, err
+	}
 
 	// 遍歷訪問shoes.URL，取得每個shoes的Size和Color
 	getSizeAndColor(shoes)
@@ -354,11 +358,42 @@ func getSizeAndColor(shoes []Shoe) {
 			}
 			defer childresp.Body.Close()
 
+			// 設定標頭模擬正常瀏覽器
+			// req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
+			// req.Header.Set("Referer", "https://www.anns.tw/") // 可視情況調整 Referer
+
+			// // 送出請求
+			// childresp, err := client.Do(req)
+			// if err != nil {
+			// 	log.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
+			// 	return
+			// }
+			// defer childresp.Body.Close()
+
+			// 讀取 HTML 內容
+			htmlBytes, err := io.ReadAll(childresp.Body)
+			if err != nil {
+				log.Println("Ann's 讀取 HTML 失敗:", err)
+				return
+			}
+			htmlContent := string(htmlBytes)
+			log.Printf("商品編號:%s,HTTP StatusCode:%d", shoes[i].ListID, childresp.StatusCode)
+
 			// 解析 HTML 取得鞋子尺寸與顏色
-			size, color, err := extractSizesAndColors(childresp.Body)
+			size, color, err := extractSizesAndColors(htmlContent)
 			if err != nil {
 				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
-				return
+				// log.Printf("寫入 debug.html紀錄，debug_%s.html", shoes[i].ListID)
+
+				// // 設定檔案名稱
+				// debugFilename := fmt.Sprintf("debug_%s.html", shoes[i].ListID)
+
+				// // 寫入 debug_{ListID}.html
+				// writeErr := os.WriteFile(debugFilename, htmlBytes, 0644)
+				// if writeErr != nil {
+				// 	log.Printf("無法寫入 %s: %v", debugFilename, writeErr)
+				// }
+				// return
 			}
 
 			// 將結果發送到 channel
@@ -388,13 +423,7 @@ func getSizeAndColor(shoes []Shoe) {
 }
 
 // 解析 HTML 並從中提取鞋子尺寸跟顏色
-func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
-	// 讀取 HTML 內容
-	htmlBytes, err := io.ReadAll(body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Ann's 讀取 HTML 失敗: %v", err)
-	}
-	htmlContent := string(htmlBytes)
+func extractSizesAndColors(htmlContent string) ([]string, []string, error) {
 
 	// 找出所有 `PropertyNameSet":"尺寸:XX` 和 `PropertyNameSet":"顏色:XX`
 	//sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
@@ -420,9 +449,9 @@ func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 	colorRe := regexp.MustCompile(`"GroupItemTitle"\s*:\s*"([^"]*)"`)
 	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
 
-	if colorMatches == nil {
-		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
-	}
+	// if colorMatches == nil {
+	// 	return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
+	// }
 
 	// 用 map 避免重複
 	colorSet := make(map[string]struct{})

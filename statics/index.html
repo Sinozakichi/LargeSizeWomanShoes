@@ -432,16 +432,16 @@
     <script>
       let url;
       //頁面初始載好時，去後端拿環境變數
-      document.addEventListener("DOMContentLoaded", function() {
-          // 獲取嵌入的環境變數
-          var environment = "{{.Environment}}";
-          console.log('Environment:', environment);
+      document.addEventListener("DOMContentLoaded", function () {
+        // 獲取嵌入的環境變數
+        var environment = "{{.Environment}}";
+        console.log("Environment:", environment);
 
-          if (environment === 'release') {
-              url = "https://largesizewomanshoes.fly.dev/filter"; // PRD
-          } else {
-              url = "http://localhost:8080/filter"; // Local
-          }
+        if (environment === "release") {
+          url = "https://largesizewomanshoes.fly.dev/filter"; // PRD
+        } else {
+          url = "http://localhost:8080/filter"; // Local
+        }
       });
     </script>
   </body>
