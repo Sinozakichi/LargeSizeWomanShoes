@@ -10,6 +10,14 @@ function highlightSizes(sizes, selectedSize) {
     .join(", ");
 }
 
+// 將鞋子顏色隔開
+function formatShoeColor(shoe) {
+  if (!shoe.color) {
+    return "N/A"; // 如果 shoe.color 為 null 或 undefined，返回 "N/A"
+  }
+  return shoe.color.join(", ");
+}
+
 // 監聽Tab切換事件
 document.addEventListener("DOMContentLoaded", function () {
   const navLinks = document.querySelectorAll(".nav-link");

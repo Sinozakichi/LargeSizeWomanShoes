@@ -7,9 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
+	"strings"
 	"sync"
+
+	"github.com/go-rod/rod"
 )
 
 type RequestBody struct {
@@ -88,6 +90,8 @@ type SalePageIndexViewModel struct {
 
 const rootAPIURL = "https://fts-api.91app.com/pythia-cdn/graphql"
 const salepageURL = "https://www.anns.tw/SalePage/Index/"
+
+//const chromePath = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
 
 func getAnnsFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) ([]Shoe, error) {
 
@@ -206,7 +210,7 @@ func extractSalePageList(body []byte) ([]Shoe, int, error) {
 	var responseData ResponseData
 	err := json.Unmarshal(body, &responseData)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Ann's JSON 解析錯誤: %v", err)
+		return nil, 0, fmt.Errorf("ann's JSON 解析錯誤: %v", err)
 	}
 
 	var shoes []Shoe
@@ -328,6 +332,14 @@ func getSizeAndColor(shoes []Shoe) {
 	})
 
 	log.Println("要訪問的鞋子總雙數:", len(shoes))
+
+	// 用 semaphore 限制同時執行的 goroutine 數量
+	var sem = make(chan struct{}, 100) // 限制同時最多 X 個 goroutines
+
+	//只啟動一個 Rod 瀏覽器
+	browser := rod.New().MustConnect()
+	defer browser.Close() // 確保程式結束時關閉瀏覽器
+
 	for i := range shoes {
 		// 增加 WaitGroup 計數
 		wg.Add(1)
@@ -335,65 +347,30 @@ func getSizeAndColor(shoes []Shoe) {
 			// 當 goroutine 完成時減少 WaitGroup 計數
 			defer wg.Done()
 
-			var client *http.Client
+			//var client *http.Client
 			var err error
 
-			if enviroment == "release" {
-				// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
-				client, err = createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
-				if err != nil {
-					log.Println("Ann's 無法創建 HTTP 客戶端:", err)
-					return
-				}
-			} else {
-				// 本地端，不用設定 CA 憑證
-				client = &http.Client{}
-			}
+			// 使用 semaphore 保證最大併發數
+			sem <- struct{}{}
+			defer func() { <-sem }() // 完成後釋放 semaphore
 
-			// 發送shoes.URL HTTP GET 請求
-			childresp, err := client.Get(shoes[i].URL)
+			page := browser.MustPage(shoes[i].URL)
+			//page := rod.New().NoDefaultDevice().MustConnect().MustPage(shoes[i].URL) // 開啟商品頁面
+			defer page.Close() // 確保離開時關閉頁面
+
+			// 等待網頁加載完畢（通常是等待某個關鍵元素出現）
+			err = page.WaitLoad()
 			if err != nil {
-				log.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
+				log.Println("Ann's 瀏覽器加載頁面失敗:", err)
 				return
 			}
-			defer childresp.Body.Close()
 
-			// 設定標頭模擬正常瀏覽器
-			// req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36")
-			// req.Header.Set("Referer", "https://www.anns.tw/") // 可視情況調整 Referer
-
-			// // 送出請求
-			// childresp, err := client.Do(req)
-			// if err != nil {
-			// 	log.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
-			// 	return
-			// }
-			// defer childresp.Body.Close()
-
-			// 讀取 HTML 內容
-			htmlBytes, err := io.ReadAll(childresp.Body)
-			if err != nil {
-				log.Println("Ann's 讀取 HTML 失敗:", err)
-				return
-			}
-			htmlContent := string(htmlBytes)
-			log.Printf("商品編號:%s,HTTP StatusCode:%d", shoes[i].ListID, childresp.StatusCode)
+			log.Printf("商品編號:%s, 已成功加載頁面", shoes[i].ListID)
 
 			// 解析 HTML 取得鞋子尺寸與顏色
-			size, color, err := extractSizesAndColors(htmlContent)
+			size, color, err := extractSizesAndColors(page)
 			if err != nil {
 				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
-				// log.Printf("寫入 debug.html紀錄，debug_%s.html", shoes[i].ListID)
-
-				// // 設定檔案名稱
-				// debugFilename := fmt.Sprintf("debug_%s.html", shoes[i].ListID)
-
-				// // 寫入 debug_{ListID}.html
-				// writeErr := os.WriteFile(debugFilename, htmlBytes, 0644)
-				// if writeErr != nil {
-				// 	log.Printf("無法寫入 %s: %v", debugFilename, writeErr)
-				// }
-				// return
 			}
 
 			// 將結果發送到 channel
@@ -423,48 +400,57 @@ func getSizeAndColor(shoes []Shoe) {
 }
 
 // 解析 HTML 並從中提取鞋子尺寸跟顏色
-func extractSizesAndColors(htmlContent string) ([]string, []string, error) {
+func extractSizesAndColors(page *rod.Page) ([]string, []string, error) {
 
-	// 找出所有 `PropertyNameSet":"尺寸:XX` 和 `PropertyNameSet":"顏色:XX`
-	//sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
-	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*(?:尺寸|顏色):(\d+)"`)
-	sizeMatches := sizeRe.FindAllStringSubmatch(htmlContent, -1)
+	var sizeMatches []string
+	var colorMatches []string
+	var sizeElements []*rod.Element
+	var colorElements []*rod.Element
 
-	if sizeMatches == nil {
-		return nil, nil, fmt.Errorf("Ann's 未找到任何尺寸資料")
+	// 等待目標的尺寸選項加載完成
+	page.MustWaitLoad()
+	page.HTML()
+
+	// 擷取第一個選項(Anns商品頁有2種Type，一種是尺寸跟顏色為同種HTML規格，且顏色在上；第二種是顏色跟尺寸為不同種HTML規格)
+	elements := page.MustElements("#ns-add-to-cart > div.sku-wrapper > div.choose-sku > div > div:nth-child(1) > ul > li.sku-li:not(.sold-out)")
+
+	// 列出每個選項
+	for _, element := range elements {
+		aElement := element.MustElement("a")
+		text := aElement.MustText()
+		sizeMatches = append(sizeMatches, text)
 	}
 
-	// 用 map 避免重複
-	sizeSet := make(map[string]struct{})
-	for _, match := range sizeMatches {
-		sizeSet[match[1]] = struct{}{}
+	if len(sizeMatches) == 0 {
+		return nil, nil, fmt.Errorf("ann's 未找到任何選項資料")
+	}
+	// 如果text裡有色(那應只有一個選項)，表示其為顏色而且為單色，那直接不撈顏色去撈尺寸
+	// 其他情況皆為顏色跟尺寸為不同種HTML規格，那上面撈到即是尺寸了
+	if strings.Contains(sizeMatches[0], "色") {
+		sizeElements = page.MustElements("#ns-add-to-cart > div.sku-wrapper > div.choose-sku > div > div:nth-child(2) > ul > li.sku-li:not(.sold-out)")
+
+		// 剛剛撈到的是顏色，要撈尺寸要重撈一次
+		// 把剛剛撈到的顏色資訊清空
+		sizeMatches = []string{}
+		for _, element := range sizeElements {
+			aElement := element.MustElement("a")
+			text := aElement.MustText()
+			sizeMatches = append(sizeMatches, text)
+		}
+
+	} else {
+		sizeElements = elements
+		colorElements = page.MustElements("#SalePageIndexController > div > section.salepage-top-section > div.salepage-top-right > div.salepage-group-wrapper > ul > li")
 	}
 
-	// 轉成 slice 回傳
-	sizes := make([]string, 0, len(sizeSet))
-	for size := range sizeSet {
-		sizes = append(sizes, size)
-	}
-	// 找出所有 "GroupItemTitle": 後的顏色
-	colorRe := regexp.MustCompile(`"GroupItemTitle"\s*:\s*"([^"]*)"`)
-	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
-
-	// if colorMatches == nil {
-	// 	return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
-	// }
-
-	// 用 map 避免重複
-	colorSet := make(map[string]struct{})
-	for _, match := range colorMatches {
-		colorSet[match[1]] = struct{}{}
+	// 列出每個顏色
+	for _, element := range colorElements {
+		aElement := element.MustElement("p")
+		text := aElement.MustText()
+		colorMatches = append(colorMatches, text)
 	}
 
-	// 轉成 slice 回傳
-	colors := make([]string, 0, len(colorSet))
-	for color := range colorSet {
-		colors = append(colors, color)
-	}
-	return sizes, colors, nil
+	return sizeMatches, colorMatches, nil
 }
 
 // 尺寸篩選

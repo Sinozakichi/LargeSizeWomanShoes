@@ -1,7 +1,6 @@
 function submitAnnsForm() {
-
   var pass = CheckAnnsFormImformation();
-  if(!pass){
+  if (!pass) {
     return;
   }
 
@@ -35,7 +34,7 @@ function submitAnnsForm() {
       tableBody.innerHTML = "";
 
       // 沒有找到符合條件的結果
-      if (data ==null ||data.length == 0) {
+      if (data == null || data.length == 0) {
         Swal.fire({
           icon: "info",
           title: "搜尋結果",
@@ -48,10 +47,17 @@ function submitAnnsForm() {
         row.innerHTML = `
                           <td>${shoe.name}</td>
                           <td>${shoe.price}</td>
-                          <td><img src="${shoe.image}" alt="${shoe.name}" style="width: 50px; height: auto;"></td>
-                          <td><a href="${shoe.url}" target="_blank">連結</a></td>
-                          <td>${highlightSizes(shoe.size, selectedSizeText)}</td>
-                          <td>${shoe.color.join(", ")}</td>
+                          <td><img src="${shoe.image}" alt="${
+          shoe.name
+        }" style="width: 50px; height: auto;"></td>
+                          <td><a href="${
+                            shoe.url
+                          }" target="_blank">連結</a></td>
+                          <td>${highlightSizes(
+                            shoe.size,
+                            selectedSizeText
+                          )}</td>
+                          <td>${formatShoeColor(shoe)}</td>
                           <td>Ann's</td>
                           <td>${selectedCategoryText}</td>
                       `;
@@ -86,7 +92,7 @@ function CheckAnnsFormImformation() {
       title: "錯誤",
       text: "請選擇鞋碼尺寸!",
     });
-    return false // 阻止表單提交
+    return false; // 阻止表單提交
   }
-  return true
+  return true;
 }
