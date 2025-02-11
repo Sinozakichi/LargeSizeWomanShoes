@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Filter Shoes</title>
+    <link
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h2>Filter Shoes</h2>
+      <!-- Bootstrap Tab區 開始 -->
+      <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <a
+            class="nav-link active"
+            id="daf-tab"
+            data-toggle="tab"
+            href="#daf"
+            role="tab"
+            aria-controls="daf"
+            aria-selected="true"
+            >D+AF</a
+          >
+        </li>
+        <li class="nav-item" role="presentation">
+          <a
+            class="nav-link"
+            id="anns-tab"
+            data-toggle="tab"
+            href="#anns"
+            role="tab"
+            aria-controls="anns"
+            aria-selected="false"
+            >Ann's</a
+          >
+        </li>
+        <!-- <li class="nav-item" role="presentation">
+          <a
+            class="nav-link"
+            id="amai-tab"
+            data-toggle="tab"
+            href="#amai"
+            role="tab"
+            aria-controls="amai"
+            aria-selected="false"
+            >Amai</a
+          >
+        </li>
+        <li class="nav-item" role="presentation">
+          <a
+            class="nav-link"
+            id="gracegift-tab"
+            data-toggle="tab"
+            href="#gracegift"
+            role="tab"
+            aria-controls="gracegift"
+            aria-selected="false"
+            >Gracegift</a
+          >
+        </li> -->
+      </ul>
+      <!-- Bootstrap Tab區 結束 -->
+      <div class="tab-content">
+        <div
+          class="tab-pane fade show active"
+          id="daf"
+          role="tabpanel"
+          aria-labelledby="daf-tab"
+        >
+          <!-- D+AF 篩選區 開始 -->
+          <form id="dafFilterForm">
+            <div class="form-group">
+              <label for="orderby">排序規則</label>
+              <select class="form-control" id="orderby" name="orderby">
+                <option value="1">新上市</option>
+                <option value="5">依銷量</option>
+                <option value="2">價格低到高</option>
+                <option value="3">價格高到低</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchSize">尺寸</label>
+              <select class="form-control" id="searchSize" name="searchSize">
+                <option value="0">尺寸</option>
+                <option value="1385">33</option>
+                <option value="6">34</option>
+                <option value="7">35</option>
+                <option value="8">36</option>
+                <option value="9">37</option>
+                <option value="10">38</option>
+                <option value="11">39</option>
+                <option value="12">40</option>
+                <option value="13">41</option>
+                <option value="14">42</option>
+                <option value="15">43</option>
+                <option value="16">44</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchColor">顏色系列</label>
+              <select class="form-control" id="searchColor" name="searchColor">
+                <option value="0">顏色系列</option>
+                <option value="49">黑色系</option>
+                <option value="84">白色系</option>
+                <option value="82">灰色系</option>
+                <option value="79">裸色系</option>
+                <option value="61">大地色系</option>
+                <option value="73">粉色系</option>
+                <option value="55">紅色系</option>
+                <option value="52">黃橘色系</option>
+                <option value="64">綠色系</option>
+                <option value="58">藍紫色系</option>
+                <option value="67">金屬色</option>
+                <option value="76">動物紋</option>
+                <option value="70">其他</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchHeel">跟高</label>
+              <select class="form-control" id="searchHeel" name="searchHeel">
+                <option value="0">跟高</option>
+                <option value="1">平底 2.5cm以下</option>
+                <option value="2">低跟 2.5-4.5cm</option>
+                <option value="3">中跟 4.5-6.5cm</option>
+                <option value="4">高跟 6.5cm以上</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchCat">鞋款</label>
+              <select class="form-control" id="searchCat" name="searchCat">
+                <option value="0">鞋款</option>
+                <option value="350">機能風芭蕾鞋</option>
+                <option value="338">瑪莉珍鞋</option>
+                <option value="130">樂福鞋、紳士鞋</option>
+                <option value="325">牛津鞋、德比鞋</option>
+                <option value="133">休閒鞋、德訓鞋</option>
+                <option value="139">平底鞋、娃娃鞋</option>
+                <option value="244">莫卡辛、豆豆鞋</option>
+                <option value="292">穆勒鞋</option>
+                <option value="142">跟鞋</option>
+                <option value="127">涼鞋、拖鞋</option>
+                <option value="304">運動鞋、老爹鞋</option>
+                <option value="148">短靴、中筒靴</option>
+                <option value="199">長靴、膝下靴</option>
+                <option value="314">膝上靴、過膝靴</option>
+                <option value="256">雨靴</option>
+                <option value="259">雪靴</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="submitDafForm()"
+            >
+              確定
+            </button>
+          </form>
+          <!-- D+AF 篩選區 結束 -->
+        </div>
+      </div>
+      <div class="tab-content">
+        <div
+          class="tab-pane fade"
+          id="anns"
+          role="tabpanel"
+          aria-labelledby="anns-tab"
+        >
+          <!-- Anns 篩選區 開始 -->
+          <form id="annsFilterForm">
+            <div class="form-group">
+              <label for="searchCat">鞋款</label>
+              <select class="form-control" id="searchCat" name="searchCat">
+                <option value="100038">選款式</option>
+                <option value="100076">短靴</option>
+                <option value="321336">襪靴</option>
+                <option value="409704">軍靴</option>
+                <option value="100078">雪靴</option>
+                <option value="100074">長靴</option>
+                <option value="407882">過膝靴</option>
+                <option value="325457">真皮靴</option>
+                <option value="279377">樂福鞋</option>
+                <option value="100637">娃娃鞋、莫卡辛</option>
+                <option value="487996">瑪莉珍鞋</option>
+                <option value="100055">休閒鞋、懶人鞋</option>
+                <option value="524244">牛津鞋</option>
+                <option value="325836">老爹鞋</option>
+                <option value="293207">穆勒鞋</option>
+                <option value="100059">尖頭鞋</option>
+                <option value="358039">方頭鞋</option>
+                <option value="100048">婚鞋</option>
+                <option value="100053">防水雨靴</option>
+                <option value="293206">涼鞋</option>
+                <option value="382729">拖鞋</option>
+                <option value="334715">水洗涼鞋</option>
+                <option value="100041">一字涼鞋</option>
+                <option value="389202">透明系</option>
+                <option value="197978">草編、編織</option>
+                <option value="100039">寶石、水鑽</option>
+                <option value="389206">特殊造型跟</option>
+                <option value="376849">男鞋</option>
+                <option value="211728">童鞋</option>
+                <option value="390920">親子鞋、情侶鞋</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="orderby">排序規則</label>
+              <select class="form-control" id="orderby" name="orderby">
+                <option value="Curator">店長推薦</option>
+                <option value="Newest">最新上架</option>
+                <option value="Sales">熱賣商品</option>
+                <option value="PageView">最多人看</option>
+                <option value="PriceLowToHigh">價格低到高</option>
+                <option value="PriceHighToLow">價格高到低</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchSize">尺寸</label>
+              <select class="form-control" id="searchSize" name="searchSize">
+                <option value="">尺寸</option>
+                <option value="33">33</option>
+                <option value="34">34</option>
+                <option value="35">35</option>
+                <option value="36">36</option>
+                <option value="37">37</option>
+                <option value="38">38</option>
+                <option value="39">39</option>
+                <option value="40">40</option>
+                <option value="41">41</option>
+                <option value="42">42</option>
+                <option value="43">43</option>
+                <option value="44">44</option>
+                <option value="45">45</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchColor">顏色系列</label>
+              <select class="form-control" id="searchColor" name="searchColor">
+                <option value="">選顏色</option>
+                <option value="K2152">純白</option>
+                <option value="K2153">黑色</option>
+                <option value="K2154">灰色</option>
+                <option value="K2155">咖色</option>
+                <option value="K2156">棕色</option>
+                <option value="K2157">紫色</option>
+                <option value="K2158">米白、杏色</option>
+                <option value="K2159">粉紅、桃紅</option>
+                <option value="K2160">紅色、酒紅</option>
+                <option value="K2161">黃色、橘色</option>
+                <option value="K2162">深藍、粉藍</option>
+                <option value="K2163">Tiffany綠、墨綠</option>
+                <option value="K2164">金屬色系</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="searchHeel">跟高</label>
+              <select class="form-control" id="searchHeel" name="searchHeel">
+                <option value="">選跟高</option>
+                <option value="K2165">平底3公分以下</option>
+                <option value="K2166">低跟3-5.5公分</option>
+                <option value="K2167">中跟5.6-8公分</option>
+                <option value="K2168">高跟8公分以上</option>
+              </select>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary"
+              onclick="submitAnnsForm()"
+            >
+              確定
+            </button>
+          </form>
+          <!-- Anns 篩選區 結束 -->
+        </div>
+      </div>
+      <div class="tab-content">
+        <div
+          class="tab-pane fade"
+          id="amai"
+          role="tabpanel"
+          aria-labelledby="amai-tab"
+        >
+          <!-- Amai 篩選區 開始 -->
+          <h1>Amai</h1>
+          <!-- Amai 篩選區 開始 -->
+        </div>
+      </div>
+      <div class="tab-content">
+        <div
+          class="tab-pane fade"
+          id="gracegift"
+          role="tabpanel"
+          aria-labelledby="gracegift-tab"
+        >
+          <!-- Gracegift 篩選區 開始 -->
+          <h1>Gracegift</h1>
+          <!-- Gracegift 篩選區 開始 -->
+        </div>
+      </div>
+    </div>
+    <!--篩選結果表格區 開始-->
+    <h2>篩選結果表格</h2>
+    <table class="table mt-5">
+      <thead>
+        <tr>
+          <th>名稱</th>
+          <th>價錢</th>
+          <th>圖片</th>
+          <th>URL</th>
+          <th>現貨鞋碼(EU)</th>
+          <th>現貨顏色</th>
+          <th>店鋪名稱</th>
+          <th>鞋款</th>
+        </tr>
+      </thead>
+      <tbody id="shoesTableBody"></tbody>
+    </table>
+    <!--篩選結果表格區 結束-->
+    <!--Script-->
+    <script src="/scripts/daf.js"></script>
+    <script src="/scripts/anns.js"></script>
+    <script src="/scripts/index.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      let url;
+      //頁面初始載好時，去後端拿環境變數
+      document.addEventListener("DOMContentLoaded", function () {
+        // 獲取嵌入的環境變數
+        var environment = "{{.Environment}}";
+        console.log("Environment:", environment);
+
+        if (environment === "release") {
+          url = "https://largesizewomanshoes.fly.dev/filter"; // PRD
+        } else {
+          url = "http://localhost:8080/filter"; // Local
+        }
+      });
+    </script>
+  </body>
+</html>

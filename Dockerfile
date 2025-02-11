@@ -39,7 +39,8 @@ RUN dbus-daemon --system &
 
 WORKDIR /app
 COPY --from=builder /run-app /usr/local/bin/
-# 複製靜態資源檔案 (js 和 html)
+# 複製靜態資源檔案 (css、js 和 html)
+COPY css /app/static
 COPY statics /app/static
 COPY scripts /app/script
 CMD ["run-app"]

@@ -1,3 +1,25 @@
+
+//開啟對應鞋店的Fliter
+function openFliter(shopname) {
+  document.querySelectorAll('.shoearea').forEach(function(element) {
+    element.style.display = 'none';
+});
+  switch (shopname) {
+    case "daf":
+      document.getElementById("dafArea").style.display = "block";
+      break;
+    case "anns":
+      document.getElementById("annsArea").style.display = "block";
+      break;
+    case "amai":
+      alert('尚未完成');
+      break;
+    case "gracegift":
+      alert('尚未完成');
+      break;
+  }
+}
+
 // 標示出選擇的鞋碼
 function highlightSizes(sizes, selectedSize) {
   return sizes

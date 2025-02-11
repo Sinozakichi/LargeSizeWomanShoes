@@ -31,6 +31,9 @@ var enviroment string
 
 func main() {
 
+	// Terminal啟動: $env:GO_ENV = "debug"
+	// >> go run main.go anns.go daf.go
+
 	// 設定環境變數
 	enviroment = os.Getenv("GO_ENV")
 	log.Println("GO_ENV:" + enviroment)
@@ -49,9 +52,11 @@ func main() {
 		log.Println("Release enviroment")
 		staticFs := http.FileServer(http.Dir("/app/static"))
 		scriptFs := http.FileServer(http.Dir("/app/script"))
+		cssFs := http.FileServer(http.Dir("/app/css"))
 
 		http.Handle("/statics/", http.StripPrefix("/statics", staticFs))
 		http.Handle("/scripts/", http.StripPrefix("/scripts", scriptFs))
+		http.Handle("/css/", http.StripPrefix("/css", cssFs))
 
 	}
 

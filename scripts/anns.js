@@ -30,7 +30,8 @@ function submitAnnsForm() {
     .then((response) => response.json())
     .then((data) => {
       Swal.close(); // 關閉讀取中的遮罩
-      const tableBody = document.getElementById("shoesTableBody");
+      document.getElementById("shopname").innerText = "Ann's";
+      const tableBody = document.querySelector("tbody");
       tableBody.innerHTML = "";
 
       // 沒有找到符合條件的結果
