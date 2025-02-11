@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 type RequestBody struct {
@@ -337,7 +338,13 @@ func getSizeAndColor(shoes []Shoe) {
 	var sem = make(chan struct{}, 100) // 限制同時最多 X 個 goroutines
 
 	//只啟動一個 Rod 瀏覽器
-	browser := rod.New().MustConnect()
+	//browser := rod.New().MustConnect()
+	//log.Println("Ann's 瀏覽器已啟動")
+
+	// 使用 rod 包啟動無頭瀏覽器
+	url := launcher.New().Headless(true).MustLaunch()
+	browser := rod.New().ControlURL(url).MustConnect()
+	log.Println("Ann's Headless瀏覽器已啟動")
 	defer browser.Close() // 確保程式結束時關閉瀏覽器
 
 	for i := range shoes {

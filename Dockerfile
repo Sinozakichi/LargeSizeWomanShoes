@@ -15,16 +15,27 @@ RUN go build -v -o /run-app .
 FROM debian:bookworm
 
 # 設置環境變數
-# ENV GO_ENV=release
-
-# 安裝 CA 憑證，確保它在最終映像中也能存在。本地端運行正常通常是因為本地的操作系統會處理 CA 憑證，並且網路配置是開放的。但在 fly.io 上，容器可能缺少信任根憑證，所以要手動於容器中安裝最新的 CA 憑證
-#RUN apt update && apt install -y ca-certificates
+ENV GO_ENV=release
 
 # 更新系統並安裝必要的依賴項
 RUN apt update && apt install -y --no-install-recommends \
+    # 安裝 CA 憑證
     ca-certificates \
-    libglib2.0-0 \
+    # 安裝 Chromium 瀏覽器
+    chromium \
+    dbus-x11 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libgbm1 \
+    libasound2 \
+    libnss3 \
+    libx11-xcb1 \
+    fonts-liberation \
+    --no-install-recommends \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 啟動 dbus
+RUN dbus-daemon --system &
 
 WORKDIR /app
 COPY --from=builder /run-app /usr/local/bin/
