@@ -347,6 +347,13 @@ func getSizeAndColor(shoes []Shoe) {
 	log.Println("Ann's Headless瀏覽器已啟動")
 	defer browser.Close() // 確保程式結束時關閉瀏覽器
 
+	//TEST 先開好分頁
+	// for i := 0; i < 10; i++ { // 這裡限制最多 10 個分頁，避免開太多
+	// 	p := browser.MustPage("") // 先開啟空白頁
+	// 	pages = append(pages, p)
+	// }
+	// log.Println("10個分頁開完")
+
 	for i := range shoes {
 		// 增加 WaitGroup 計數
 		wg.Add(1)
@@ -363,7 +370,12 @@ func getSizeAndColor(shoes []Shoe) {
 
 			page := browser.MustPage(shoes[i].URL)
 			//page := rod.New().NoDefaultDevice().MustConnect().MustPage(shoes[i].URL) // 開啟商品頁面
-			defer page.Close() // 確保離開時關閉頁面
+
+			//TEST 先開好分頁
+			// 取得一個可用的 page
+			// page := pages[i%len(pages)]     // 循環利用現有的 pages
+			// page.MustNavigate(shoes[i].URL) // 直接載入新網址
+			// defer page.Close()              // 確保離開時關閉頁面
 
 			// 等待網頁加載完畢（通常是等待某個關鍵元素出現）
 			err = page.WaitLoad()

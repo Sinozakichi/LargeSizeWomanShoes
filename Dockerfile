@@ -34,13 +34,13 @@ RUN apt update && apt install -y --no-install-recommends \
     --no-install-recommends \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 啟動 dbus
-RUN dbus-daemon --system &
-
 WORKDIR /app
 COPY --from=builder /run-app /usr/local/bin/
 # 複製靜態資源檔案 (css、js 和 html)
 COPY css /app/static
 COPY statics /app/static
 COPY scripts /app/script
+
+# 啟動 dbus-daemon 和你的應用
 CMD ["run-app"]
+# CMD dbus-daemon --system --fork && run-app

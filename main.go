@@ -11,6 +11,8 @@ import (
 	"os"
 	"text/template"
 	"time"
+
+	"github.com/go-rod/rod"
 )
 
 type Shoe struct {
@@ -26,6 +28,9 @@ type Shoe struct {
 
 // 代理池中的代理伺服器列表
 var proxyPool = []string{}
+
+// TEST 先開好分頁
+var pages []*rod.Page
 
 var enviroment string
 
