@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -335,24 +336,13 @@ func getSizeAndColor(shoes []Shoe) {
 	log.Println("要訪問的鞋子總雙數:", len(shoes))
 
 	// 用 semaphore 限制同時執行的 goroutine 數量
-	var sem = make(chan struct{}, 100) // 限制同時最多 X 個 goroutines
-
-	//只啟動一個 Rod 瀏覽器
-	//browser := rod.New().MustConnect()
-	//log.Println("Ann's 瀏覽器已啟動")
+	var sem = make(chan struct{}, 20) // 限制同時最多 X 個 goroutines
 
 	// 使用 rod 包啟動無頭瀏覽器
 	url := launcher.New().Headless(true).MustLaunch()
 	browser := rod.New().ControlURL(url).MustConnect()
 	log.Println("Ann's Headless瀏覽器已啟動")
 	defer browser.Close() // 確保程式結束時關閉瀏覽器
-
-	//TEST 先開好分頁
-	// for i := 0; i < 10; i++ { // 這裡限制最多 10 個分頁，避免開太多
-	// 	p := browser.MustPage("") // 先開啟空白頁
-	// 	pages = append(pages, p)
-	// }
-	// log.Println("10個分頁開完")
 
 	for i := range shoes {
 		// 增加 WaitGroup 計數
@@ -371,23 +361,17 @@ func getSizeAndColor(shoes []Shoe) {
 			page := browser.MustPage(shoes[i].URL)
 			//page := rod.New().NoDefaultDevice().MustConnect().MustPage(shoes[i].URL) // 開啟商品頁面
 
-			//TEST 先開好分頁
-			// 取得一個可用的 page
-			// page := pages[i%len(pages)]     // 循環利用現有的 pages
-			// page.MustNavigate(shoes[i].URL) // 直接載入新網址
-			// defer page.Close()              // 確保離開時關閉頁面
-
 			// 等待網頁加載完畢（通常是等待某個關鍵元素出現）
-			err = page.WaitLoad()
-			if err != nil {
-				log.Println("Ann's 瀏覽器加載頁面失敗:", err)
-				return
-			}
+			// err = page.WaitLoad()
+			// if err != nil {
+			// 	log.Println("Ann's 瀏覽器加載頁面失敗:", err)
+			// 	return
+			// }
 
 			log.Printf("商品編號:%s, 已成功加載頁面", shoes[i].ListID)
 
 			// 解析 HTML 取得鞋子尺寸與顏色
-			size, color, err := extractSizesAndColors(page)
+			size, color, err := extractSizesAndColorsTest(page)
 			if err != nil {
 				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
 			}
@@ -470,6 +454,62 @@ func extractSizesAndColors(page *rod.Page) ([]string, []string, error) {
 	}
 
 	return sizeMatches, colorMatches, nil
+}
+
+// 解析 HTML 並從中提取鞋子尺寸跟顏色
+func extractSizesAndColorsTest(page *rod.Page) ([]string, []string, error) {
+
+	// 等待HTML加載完成
+	htmlContent, err := page.Eval("() => document.body.innerHTML")
+	if err != nil {
+		return nil, nil, fmt.Errorf("ann's 獲取完整 HTML 失敗: %v", err)
+	}
+	htmlStr := htmlContent.Value.String()
+
+	// 確保頁面完全加載
+	page.MustWaitLoad()
+	htmlStr = page.HTML()
+
+	// 找出所有 `PropertyNameSet":"尺寸:XX` 和 `PropertyNameSet":"顏色:XX`
+	//sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
+	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*(?:尺寸|顏色):(\d+)"`)
+	sizeMatches := sizeRe.FindAllStringSubmatch(htmlStr, -1)
+
+	if sizeMatches == nil {
+		return nil, nil, fmt.Errorf("Ann's 未找到任何尺寸資料")
+	}
+
+	// 用 map 避免重複
+	sizeSet := make(map[string]struct{})
+	for _, match := range sizeMatches {
+		sizeSet[match[1]] = struct{}{}
+	}
+
+	// 轉成 slice 回傳
+	sizes := make([]string, 0, len(sizeSet))
+	for size := range sizeSet {
+		sizes = append(sizes, size)
+	}
+	// 找出所有 "GroupItemTitle": 後的顏色
+	colorRe := regexp.MustCompile(`"GroupItemTitle"\s*:\s*"([^"]*)"`)
+	colorMatches := colorRe.FindAllStringSubmatch(htmlStr, -1)
+
+	if colorMatches == nil {
+		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
+	}
+
+	// 用 map 避免重複
+	colorSet := make(map[string]struct{})
+	for _, match := range colorMatches {
+		colorSet[match[1]] = struct{}{}
+	}
+
+	// 轉成 slice 回傳
+	colors := make([]string, 0, len(colorSet))
+	for color := range colorSet {
+		colors = append(colors, color)
+	}
+	return sizes, colors, nil
 }
 
 // 尺寸篩選
