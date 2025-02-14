@@ -85,13 +85,22 @@ function CheckAnnsFormImformation() {
   // 取得表單資料+整理資料
   const form = document.getElementById("annsFilterForm");
   const searchSize = form.querySelector("#searchSize").value;
+  const searchCat = form.querySelector("#searchCat").value;
 
-  // 檢查 searchSize 是否為空值
+  // 檢查 searchSize 與 searchCat 是否為空值
   if (!searchSize) {
     Swal.fire({
       icon: "warning",
       title: "錯誤",
       text: "請選擇鞋碼尺寸!",
+    });
+    return false; // 阻止表單提交
+  }
+  if (!searchCat) {
+    Swal.fire({
+      icon: "warning",
+      title: "錯誤",
+      text: "請選擇鞋子類別!",
     });
     return false; // 阻止表單提交
   }

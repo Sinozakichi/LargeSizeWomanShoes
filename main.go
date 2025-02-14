@@ -6,13 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"text/template"
-	"time"
-
-	"github.com/go-rod/rod"
 )
 
 type Shoe struct {
@@ -25,9 +22,6 @@ type Shoe struct {
 	Size   []string `json:"size"`
 	Color  []string `json:"color"`
 }
-
-// TEST 先開好分頁
-var pages []*rod.Page
 
 var enviroment string
 
@@ -155,7 +149,12 @@ func createHTTPClientWithCACert(caCertPath string) (*http.Client, error) {
 	return client, nil
 }
 
-// 隨機等待時間
-func sleepRandom(min, max int) {
-	time.Sleep(time.Duration(rand.Intn(max-min)+min) * time.Millisecond)
+// 檢查切片中是否包含數字的輔助函數
+func containsDigit(sizes []string) bool {
+	for _, size := range sizes {
+		if _, err := strconv.Atoi(size); err == nil {
+			return true
+		}
+	}
+	return false
 }
