@@ -26,9 +26,6 @@ type Shoe struct {
 	Color  []string `json:"color"`
 }
 
-// 代理池中的代理伺服器列表
-var proxyPool = []string{}
-
 // TEST 先開好分頁
 var pages []*rod.Page
 
@@ -158,8 +155,7 @@ func createHTTPClientWithCACert(caCertPath string) (*http.Client, error) {
 	return client, nil
 }
 
-// 隨機選擇一個代理伺服器
-func getRandomProxy() string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano())) // 初始化隨機數生成器
-	return proxyPool[r.Intn(len(proxyPool))]
+// 隨機等待時間
+func sleepRandom(min, max int) {
+	time.Sleep(time.Duration(rand.Intn(max-min)+min) * time.Millisecond)
 }

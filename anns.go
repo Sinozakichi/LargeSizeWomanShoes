@@ -320,7 +320,7 @@ func getTotalShoesByFliterResponse(shoes []Shoe, startIndex, totalSize int, requ
 }
 
 // 遍歷訪問shoes.URL，取得每個shoes的Size和Color
-func getSizeAndColor(shoes []Shoe) {
+func getSizeAndColorByGoRod(shoes []Shoe) {
 
 	// 用於等待所有 goroutines 完成
 	var wg sync.WaitGroup //類似C#的Task
@@ -361,17 +361,10 @@ func getSizeAndColor(shoes []Shoe) {
 			page := browser.MustPage(shoes[i].URL)
 			//page := rod.New().NoDefaultDevice().MustConnect().MustPage(shoes[i].URL) // 開啟商品頁面
 
-			// 等待網頁加載完畢（通常是等待某個關鍵元素出現）
-			// err = page.WaitLoad()
-			// if err != nil {
-			// 	log.Println("Ann's 瀏覽器加載頁面失敗:", err)
-			// 	return
-			// }
-
 			log.Printf("商品編號:%s, 已成功加載頁面", shoes[i].ListID)
 
 			// 解析 HTML 取得鞋子尺寸與顏色
-			size, color, err := extractSizesAndColorsTest(page)
+			size, color, err := extractSizesAndColorsByRod(page)
 			if err != nil {
 				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
 			}
@@ -402,8 +395,86 @@ func getSizeAndColor(shoes []Shoe) {
 	}
 }
 
+// 遍歷訪問shoes.URL，取得每個shoes的Size和Color
+func getSizeAndColor(shoes []Shoe) {
+
+	// 用於等待所有 goroutines 完成
+	var wg sync.WaitGroup //類似C#的Task
+	// 用於保護共享資源
+	var mu sync.Mutex
+	// 傳遞結果的 channel
+	ch := make(chan struct {
+		index int
+		size  []string
+		color []string
+	})
+
+	log.Println("要訪問的鞋子總雙數:", len(shoes))
+	for i := range shoes {
+		// 增加 WaitGroup 計數
+		wg.Add(1)
+		go func(i int) {
+			// 當 goroutine 完成時減少 WaitGroup 計數
+			defer wg.Done()
+
+			var client *http.Client
+			var err error
+
+			if enviroment == "release" {
+				// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+				client, err = createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+				if err != nil {
+					log.Println("Ann's 無法創建 HTTP 客戶端:", err)
+					return
+				}
+			} else {
+				// 本地端，不用設定 CA 憑證
+				client = &http.Client{}
+			}
+
+			// 發送shoes.URL HTTP GET 請求
+			childresp, err := client.Get(shoes[i].URL)
+			if err != nil {
+				log.Println("Ann's 遍歷訪問各商品時請求錯誤:", err)
+				return
+			}
+			defer childresp.Body.Close()
+
+			// 解析 HTML 取得鞋子尺寸與顏色
+			size, color, err := extractSizesAndColors(childresp.Body)
+			if err != nil {
+				log.Printf("Ann's 解析 HTML 異常，商品編號:%s,商品名稱:%s,商品URL:%s，錯誤資訊:%s", shoes[i].ListID, shoes[i].Name, shoes[i].URL, err)
+				return
+			}
+
+			// 將結果發送到 channel
+			ch <- struct {
+				index int
+				size  []string
+				color []string
+			}{index: i, size: size, color: color}
+		}(i)
+	}
+
+	// 啟動一個 goroutine 來等待所有工作完成並關閉 channel
+	go func() {
+		// 等待所有 goroutines 完成
+		wg.Wait() //類似C#的Task.WaitAll()
+		close(ch)
+	}()
+
+	// 從 channel 接收結果並更新鞋子的尺寸和顏色
+	for result := range ch {
+		// 鎖定 mutex 以保護共享資源
+		mu.Lock()
+		shoes[result.index].Size = result.size
+		shoes[result.index].Color = result.color
+		mu.Unlock()
+	}
+}
+
 // 解析 HTML 並從中提取鞋子尺寸跟顏色
-func extractSizesAndColors(page *rod.Page) ([]string, []string, error) {
+func extractSizesAndColorsByRod(page *rod.Page) ([]string, []string, error) {
 
 	var sizeMatches []string
 	var colorMatches []string
@@ -457,23 +528,19 @@ func extractSizesAndColors(page *rod.Page) ([]string, []string, error) {
 }
 
 // 解析 HTML 並從中提取鞋子尺寸跟顏色
-func extractSizesAndColorsTest(page *rod.Page) ([]string, []string, error) {
+func extractSizesAndColors(body io.Reader) ([]string, []string, error) {
 
-	// 等待HTML加載完成
-	htmlContent, err := page.Eval("() => document.body.innerHTML")
+	// 讀取 HTML 內容
+	htmlBytes, err := io.ReadAll(body)
 	if err != nil {
-		return nil, nil, fmt.Errorf("ann's 獲取完整 HTML 失敗: %v", err)
+		return nil, nil, fmt.Errorf("Ann's 讀取 HTML 失敗: %v", err)
 	}
-	htmlStr := htmlContent.Value.String()
-
-	// 確保頁面完全加載
-	page.MustWaitLoad()
-	htmlStr = page.HTML()
+	htmlContent := string(htmlBytes)
 
 	// 找出所有 `PropertyNameSet":"尺寸:XX` 和 `PropertyNameSet":"顏色:XX`
 	//sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*尺寸:(\d+)"`)
 	sizeRe := regexp.MustCompile(`"PropertyNameSet"\s*:\s*"[^"]*(?:尺寸|顏色):(\d+)"`)
-	sizeMatches := sizeRe.FindAllStringSubmatch(htmlStr, -1)
+	sizeMatches := sizeRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if sizeMatches == nil {
 		return nil, nil, fmt.Errorf("Ann's 未找到任何尺寸資料")
@@ -492,7 +559,7 @@ func extractSizesAndColorsTest(page *rod.Page) ([]string, []string, error) {
 	}
 	// 找出所有 "GroupItemTitle": 後的顏色
 	colorRe := regexp.MustCompile(`"GroupItemTitle"\s*:\s*"([^"]*)"`)
-	colorMatches := colorRe.FindAllStringSubmatch(htmlStr, -1)
+	colorMatches := colorRe.FindAllStringSubmatch(htmlContent, -1)
 
 	if colorMatches == nil {
 		return nil, nil, fmt.Errorf("Ann's 未找到任何顏色資料，或其只有單色/沒有顏色")
