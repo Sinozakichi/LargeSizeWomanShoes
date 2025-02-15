@@ -1,9 +1,8 @@
-
 //開啟對應鞋店的Fliter
 function openFliter(shopname) {
-  document.querySelectorAll('.shoearea').forEach(function(element) {
-    element.style.display = 'none';
-});
+  document.querySelectorAll(".shoearea").forEach(function (element) {
+    element.style.display = "none";
+  });
   switch (shopname) {
     case "daf":
       document.getElementById("dafArea").style.display = "block";
@@ -12,16 +11,20 @@ function openFliter(shopname) {
       document.getElementById("annsArea").style.display = "block";
       break;
     case "amai":
-      alert('尚未完成');
+      alert("尚未完成");
       break;
     case "gracegift":
-      alert('尚未完成');
+      alert("尚未完成");
       break;
   }
 }
 
 // 標示出選擇的鞋碼
 function highlightSizes(sizes, selectedSize) {
+  if (!sizes || sizes.length === 0) {
+    return "N/A"; // 如果 sizes 為空值，返回空字符串
+  }
+
   return sizes
     .map((size) => {
       if (size === selectedSize) {

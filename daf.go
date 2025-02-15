@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"sync"
 )
 
@@ -24,6 +26,8 @@ var bootCategory = map[string]int{
 func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCat string) ([]Shoe, error) {
 
 	var url string
+	var pagecount int = 1
+	var isBoot bool = false
 	var resp *http.Response
 	var err error
 	// 用於等待所有 goroutines 完成
@@ -35,12 +39,15 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	// 記錄參數
 	log.Printf("D+AF篩選條件 - 排序規則: %s, 尺碼: %s, 顏色: %s, 跟高: %s, 款式: %s", orderby, searchSize, searchColor, searchHeel, searchCat)
 
+	var fliterQuery = fmt.Sprintf("orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", orderby, searchSize, searchColor, searchHeel, searchCat)
+
 	// 靴類要打另一個URL
 	if _, exists := bootCategory[searchCat]; exists {
-		url = fmt.Sprintf("%sproduct/list/303?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
+		url = fmt.Sprintf("%sproduct/list/303/%d?%s", rootURL, pagecount, fliterQuery)
+		isBoot = true
 	} else {
 		// 其他品項則手動組裝篩選 URL
-		url = fmt.Sprintf("%sproduct/list/all?orderby=%s&searchSize=%s&searchColor=%s&searchHeel=%s&searchCat=%s", rootURL, orderby, searchSize, searchColor, searchHeel, searchCat)
+		url = fmt.Sprintf("%sproduct/list/all/%d?%s", rootURL, pagecount, fliterQuery)
 	}
 	log.Println("url:" + url)
 
@@ -73,13 +80,21 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 		return shoes, err
 	}
 
-	// 取出訊息
-	// ListID、名稱、價格
-	getListIDAndNameAndPrize(body, &shoes)
-	// URL
-	getURL(body, &shoes, len(shoes))
-	// 圖檔
-	getImage(body, &shoes, len(shoes))
+	// 取出totalPage
+	totalPage, err := getTotalPage(body)
+	if err != nil {
+		log.Println("D+AF 取得totalPage錯誤:", err)
+		return shoes, err
+	}
+
+	log.Printf("已拿到totalpage，要取全部篩選的鞋子，D+AF 總頁數: %d", totalPage)
+	// 拿到totalPage後，遍歷每一頁的商品將之加入shoes
+	err = getTotalShoes(totalPage, rootURL, pagecount, fliterQuery, isBoot, &shoes)
+	if err != nil {
+		log.Println("D+AF 取得所有鞋子錯誤:", err)
+		return shoes, err
+	}
+	log.Printf("已拿取全部篩選的鞋子，總鞋子數: %d", len(shoes))
 
 	// 傳遞結果的 channel
 	ch := make(chan struct {
@@ -143,6 +158,88 @@ func getDAFFliterResponse(orderby, searchSize, searchColor, searchHeel, searchCa
 	return shoes, nil
 }
 
+// 從吐回來的Body中取出totalPage
+func getTotalPage(body []byte) (int, error) {
+
+	var totalpage int
+	var err error
+
+	// 使用正則表達式提取 <input type="hidden" name="totalpage"> 元素的 value 屬性
+	re := regexp.MustCompile(`<input[^>]+type=['"]hidden['"][^>]+name=['"]totalpage['"][^>]+value=['"](\d+)['"][^>]*>`)
+	matches := re.FindStringSubmatch(string(body))
+	if len(matches) == 0 {
+		log.Println("D+AF 未找到匹配的 totalpage")
+		return 0, errors.New("D+AF 未找到匹配的 totalpage")
+	}
+
+	// 轉型成int
+	totalpage, err = strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, errors.New("D+AF totalpage轉換錯誤")
+	}
+	return totalpage, nil
+}
+
+// 依totalPage去取出所有鞋
+func getTotalShoes(totalPage int, rootURL string, pagecount int, fliterQuery string, isBoot bool, shoes *[]Shoe) error {
+
+	// 依totalPage去取出所有鞋
+	for count := pagecount; count <= totalPage; count++ {
+
+		var resp *http.Response
+		var err error
+		var url string
+
+		if isBoot {
+			url = fmt.Sprintf("%sproduct/list/303/%d?%s", rootURL, count, fliterQuery)
+		} else {
+			url = fmt.Sprintf("%sproduct/list/all/%d?%s", rootURL, count, fliterQuery)
+		}
+
+		log.Println("url:" + url)
+
+		if enviroment == "release" {
+			// 正式環境，要設定自訂的帶有 CA 憑證的 HTTP 客戶端
+			client, err := createHTTPClientWithCACert("/etc/ssl/certs/ca-certificates.crt")
+			if err != nil {
+				log.Println("D+AF totalPage去取出所有鞋無法創建 HTTP 客戶端:", err)
+				return err
+			}
+
+			// 帶有 CA 憑證的 HTTP 客戶端向 D+AF 打 Fliter HTTP GET 請求
+			resp, err = client.Get(url)
+		} else {
+			// 本地端，不用設定 CA 憑證
+			// 直接向 D+AF 打 Fliter HTTP GET 請求
+			resp, err = http.Get(url)
+		}
+
+		// 向 D+AF 打 Fliter HTTP GET 請求
+		resp, err = http.Get(url)
+		if err != nil {
+			log.Println("D+AF totalPage去取出所有鞋請求錯誤:", err)
+			return err
+		}
+		defer resp.Body.Close()
+
+		// 讀取回應內容
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Println("D+AF totalPage去取出所有鞋讀取Body錯誤:", err)
+			return err
+		}
+
+		// ListID、名稱、價格
+		getListIDAndNameAndPrize(body, shoes)
+		// URL
+		getURL(body, shoes, len(*shoes))
+		// 圖檔
+		getImage(body, shoes, len(*shoes))
+	}
+
+	return nil
+}
+
 // 從吐回來的Body中取出所有鞋的名稱、價格、數量
 func getListIDAndNameAndPrize(body []byte, shoes *[]Shoe) []Shoe {
 
@@ -169,7 +266,7 @@ func getListIDAndNameAndPrize(body []byte, shoes *[]Shoe) []Shoe {
 	// 將 items 轉換為 Shoe 結構體
 	for _, item := range items {
 		shoe := Shoe{
-			ListID: fmt.Sprintf("%v", item["list_position"]),
+			ListID: fmt.Sprintf("%v", item["id"]),
 			Name:   item["name"].(string),
 			Price:  fmt.Sprintf("%v", item["price"]),
 		}
@@ -181,17 +278,16 @@ func getListIDAndNameAndPrize(body []byte, shoes *[]Shoe) []Shoe {
 // 從吐回來的Body中取出所有鞋的圖檔
 func getImage(body []byte, shoes *[]Shoe, num int) []Shoe {
 
-	// 使用正則表達式提取 <source> 標籤中的 srcset 屬性值
-	re := regexp.MustCompile(`<source[^>]+srcset="([^"]+)"`)
-	matches := re.FindAllStringSubmatch(string(body), num)
-	if len(matches) != num {
-		log.Println("D+AF 未完全匹配正確的 <source> 標籤")
-		return *shoes
-	}
+	// 使用正則表達式提取 <source> 標籤中的 srcset 和 id 屬性值
+	re := regexp.MustCompile(`<source[^>]+srcset="([^"]+)"[^>]+id="pic(\d+_\d+)w"`)
+	matches := re.FindAllStringSubmatch(string(body), -1)
+
 	// 將 srcset 值存儲到 Shoe 結構體的 Image 字段
-	for i, match := range matches {
-		if i < num {
-			(*shoes)[i].Image = match[1]
+	for _, match := range matches {
+		for i := range *shoes {
+			if (*shoes)[i].ListID == match[2] {
+				(*shoes)[i].Image = match[1]
+			}
 		}
 	}
 
@@ -203,16 +299,18 @@ func getURL(body []byte, shoes *[]Shoe, num int) []Shoe {
 
 	// 使用正則表達式提取 <a> 標籤中的 href 屬性值
 	re := regexp.MustCompile(`<a[^>]*alt="[^"]*"[^>]*href="([^"]+)"`)
-	matches := re.FindAllStringSubmatch(string(body), num)
-	if len(matches) != num {
-		log.Println("D+AF 未完全匹配正確的 <a> 標籤")
-		return *shoes
-	}
+	matches := re.FindAllStringSubmatch(string(body), -1)
 
 	// 將 href 值存儲到 Shoe 結構體的 URL 字段
-	for i, match := range matches {
-		if i < num {
-			(*shoes)[i].URL = rootURL + match[1]
+	for _, match := range matches {
+		// 使用正則表達式提取 href 中的後面兩段
+		hrefRe := regexp.MustCompile(`/product/show/(\d+)/(\d+)/`)
+		hrefMatches := hrefRe.FindStringSubmatch(match[1])
+		listID := fmt.Sprintf("%s_%s", hrefMatches[1], hrefMatches[2])
+		for i := range *shoes {
+			if (*shoes)[i].ListID == listID {
+				(*shoes)[i].URL = rootURL + match[1]
+			}
 		}
 	}
 
@@ -226,7 +324,7 @@ func getSize(body []byte, shoe *Shoe) *Shoe {
 	re := regexp.MustCompile(`<div[^>]+class=['"][^'"]*mini-box\s+sizeSel[^'"]*['"][^>]+btn=['"]ok['"][^>]*>.*?</div>`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		log.Println("D+AF 未找到匹配的 <div class='mini-box sizeSel'> 標籤")
+		log.Printf("D+AF 未找到匹配的 <div class='mini-box sizeSel'> 標籤，應為售罄，商品名稱: %s", shoe.Name)
 		return shoe
 	}
 
@@ -251,7 +349,7 @@ func getColor(body []byte, shoe *Shoe) *Shoe {
 	re := regexp.MustCompile(`<div[^>]+class=['"][^'"]*mini-box\s+color\s+colorSel[^'"]*['"][^>]+title=['"]([^'"]+)['"][^>]*>`)
 	matches := re.FindAllStringSubmatch(string(body), -1)
 	if len(matches) == 0 {
-		log.Println("D+AF 未找到匹配的 <div class='mini-box colorSel'> 標籤")
+		log.Printf("D+AF 未找到匹配的 <div class='mini-box colorSel'> 標籤，商品名稱: %s", shoe.Name)
 		return shoe
 	}
 
