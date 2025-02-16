@@ -52,7 +52,7 @@ go run main.go daf.go anns.go
 或使用 Docker：
 
 ```bash
-docker-compose up -d
+docker build -t largeSizeWomanShoes .
 ```
 
 ## 📂 專案目錄結構
